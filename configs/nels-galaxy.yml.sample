@@ -1,0 +1,7 @@
+galaxy_config: /PATH/TO/GALAXY/CONFIG/galaxy.yml
+name: GALAXY-BASE-URL
+key: SECRET-KEY
+port: 8888
+# Just if wanting to use the proxying to master functionality
+proxy_url: http://localhost:8009
+proxy_key: SECRET-KEY2

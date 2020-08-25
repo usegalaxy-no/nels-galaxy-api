@@ -1,0 +1,6 @@
+galaxy_config: <PATH-TO-GALAXY-CONFIG-DIR/galaxy.yml
+name: <GALAXY-BASE-URL, EG: galaxy-uib.bioinfo.no>
+key: <GET-ACCESS-KEY-FROM-KIM>
+proxy_url: http://test.usegalaxy.no/nels-galaxy/
+proxy_key: <GET-PROXY-KEY-FROM-KIM>
+port: 8008

@@ -1,0 +1,21 @@
+nels_storage_client_key: "GET KEY FROM KIDARNE"
+nels_storage_client_secret: "GET KEY FROM KIDARNE"
+nels_url: 'https://test-fe.cbu.uib.no/nels-'
+
+nels_galaxy_api: "https://test.usegalaxy.no/nels-galaxy" # or "https://usegalaxy.no/nels-galaxy" for production
+nels_galaxy_key: "GET KEY FROM KIM"
+
+mq_uri: amqps://GET-DETAILS-FROM-KIM/nels_galaxy
+
+sleep: 15
+
+nodes: [{"galaxy_url": "https://test.usegalaxy.no/",
+         "api_key": "ADMIN API-KEY FROM GALAXY WEB INTERFACE",
+         "helper_api": "https://test.usegalaxy.no/nels-galaxy",
+         "helper_key": "GET-KEY-FROM-KIM",
+         "contact_email": "admin@galaxy.uib.no",
+         "max_exports": 5,
+         "name": "test.usegalaxy.no"
+        },
+        ]
+

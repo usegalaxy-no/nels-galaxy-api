@@ -1,0 +1,9 @@
+tornado
+psycopg2-binary
+records
+pycryptodome
+git+https://github.com/brugger/kbr-tools.git
+tabulate
+bioblend
+requests
+pika

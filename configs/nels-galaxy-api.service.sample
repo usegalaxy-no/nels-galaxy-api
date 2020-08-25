@@ -1,0 +1,16 @@
+[Unit]
+Description = Runs the nels-galaxy-api service
+After = network.target
+
+StartLimitBurst=5
+StartLimitIntervalSec=10
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=<USER_TO_RUN_AS>
+ExecStart = <INSTALL_DIR>/bin/nels-galaxy-api.py -l <INSTALL_DIR>/nels-galaxy.log -c <INSTALL_DIR>/nels-galaxy.yml
+
+[Install]
+WantedBy = multi-user.target

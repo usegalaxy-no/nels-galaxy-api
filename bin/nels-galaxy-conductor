@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+
+import argparse
+import pprint as pp
+import sys
+import os
+import json
+import time
+import tempfile
+
+sys.path.append(".")
+
+import requests
+from bioblend.galaxy import GalaxyInstance
+
+import kbr.config_utils as config_utils
+
+import kbr.log_utils as logger
+import kbr.mq_utils as mq_utils
+
+
+import nels_galaxy_api.api_requests as api_requests
+
+VERSION = '0.0.1'
+
+sleep_time = 15
+
+nels_galaxy_api = None
+nels_galaxy_key = None
+nels_storage_client_key = None
+nels_storage_client_secret = None
+nels_url = None
+
+mq = None
+
+
+def init(config_file:str) -> {}:
+    config = config_utils.readin_config_file( config_file )
+    print( config )
+
+    global nels_galaxy_api, nels_url, nels_storage_client_key, nels_storage_client_secret, nels_galaxy_key, sleep_time
+    nels_galaxy_api            = api_requests.ApiRequests(config['nels_galaxy_api'], config['nels_galaxy_key'])
+    nels_url                   = config['nels_url']
+    nels_storage_client_secret = config['nels_storage_client_secret']
+    nels_storage_client_key    = config['nels_storage_client_key']
+    sleep_time                 = config['sleep_time']
+
+#    api_requests.set_token(config['nels_galaxy_key'])
+
+
+    if 'mq_uri' in config:
+        global mq
+        mq = mq_utils.Mq()
+        mq.connect(uri=config['mq_uri'])
+
+
+    for node in config['nodes']:
+        node['api'] = api_requests.ApiRequests(node['helper_api'], node['helper_key'])
+        del node['helper_api']
+        del node['helper_key']
+
+
+    print( config['nodes'])
+
+    return config['nodes']
+
+def update_job_states(helper_api:str, instance:str, states:[str]) -> int:
+
+    active = 0
+
+    for state in states:
+        exports = nels_galaxy_api.get_instance_exports(instance, {'state': state})
+        pp.pprint( f"{instance}/{state} --> Exports: " )
+        for export in exports:
+#            print( "State:", export['state'])
+#            pp.pprint( export )
+            history_export = helper_api.get_history_export(export['export_id'])
+            if history_export['state'] != state:
+                print( f"EXPORT --> {export}")
+                print( f"Changing state for export-tracking:{export['export_id']} from '{state}' to '{history_export['state']}'")
+                nels_galaxy_api.update_export(export['id'], {"state": history_export['state']})
+
+            if history_export['state'] in ['new', 'waiting', 'queued', 'running']:
+                active += 1
+
+    print( f"{active} active of job(s) for {instance}")
+
+    return active
+
+
+
+def submit_mq_job(cmds:[], pre:str=None,  success:str=None, error:str=None, post:str=None) -> None:
+    payload = {'pre':pre,
+               'cmds': cmds,
+               'success': success,
+               'error': error,
+               'post': post}
+
+    if mq is None:
+        print('MQ not configured, cannot send message')
+        return
+
+    mq.publish(body=json.dumps(payload))
+
+
+
+def fetch_history(tracker_id:int, helper_url:str, token=None):
+
+    tracker = nels_galaxy_api.get_export(tracker_id)
+
+    export_id = tracker['export_id']
+
+    outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir="/var/tmp/"), export_id)
+#    export['tmpfile'] = outfile
+    nels_galaxy_api.update_export(tracker_id, {'tmpfile':outfile})
+
+
+#    token   = 'usegalaxy_secret'
+
+    cmds = f"curl -H 'Authorization: bearer {token}' -Lo {outfile} {helper_url}/history/download/{export_id}/"
+    print( 'fetch-cmd:', cmds)
+
+
+    update_str = "requests.update_export('{base_url}', '{tracker_id}', {state})"
+    pre_state= "{'state':'fetch-running'}"
+    success_state= "{'state':'fetch-ok'}"
+    error_state= "{'state':'fetch-error'}"
+
+
+    submit_mq_job(cmds=cmds,
+                  pre=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=pre_state),
+                  success=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=success_state),
+                  error=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=error_state),
+                  )
+
+    nels_galaxy_api.update_export(tracker_id, {'state': 'fetch-queue'})
+
+
+
+def push_history_to_nels_storage(tracker_id:int, helper_api:str):
+
+    tracker = nels_galaxy_api.get_export(tracker_id)
+    ssh_info = get_ssh_credential(tracker['nels_id'])
+    history = helper_api.get_history_export(export_id=tracker['export_id'])
+
+    import re
+    create_time = tracker['create_time'].replace("-", "").replace(":","")
+    create_time = re.sub(r'\.\d+', '', create_time)
+    history['name'] = history['name'].replace(" ", "_")
+    dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
+#    print(dest_file)
+
+
+    cmds = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
+    print( "CMD:", cmds)
+
+    update_str = "requests.update_export('{base_url}', '{tracker_id}', {state})"
+    pre_state= "{'state':'nels-transfer-running'}"
+    success_state= "{'state':'nels-transfer-ok'}"
+    error_state= "{'state':'nels-transfer-error'}"
+
+
+    submit_mq_job(cmds=cmds,
+                  pre=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=pre_state),
+                  success=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=success_state),
+                  error=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=error_state),
+                  post=f"rm {ssh_info['key_file']} {tracker['tmpfile']}"
+                  )
+
+    nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-queue'})
+
+def get_ssh_credential(nels_id:int):
+
+    # make sure the id is a string
+    nels_id = str( nels_id )
+#    api_url = 'https://nels.bioinfo.no/'
+#    api_url = 'https://test-fe.cbu.uib.no/nels-'
+
+    api_url = nels_url + "storage2/users/" + nels_id
+    print( api_url )
+    response =  requests.get(api_url, auth=(nels_storage_client_key, nels_storage_client_secret))
+    if(response.status_code == requests.codes.ok):
+        json_response = response.json()
+        # write key to a tmp file
+        tmp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".txt", dir="/var/tmp/", delete=False)
+        tmp.write( json_response['key-rsa'])
+        tmp.close()
+        json_response['key_file'] = tmp.name
+        return json_response
+    else:
+        raise Exception("HTTP response code=%s" % str(response.status_code))
+
+
+
+def main():
+    parser = argparse.ArgumentParser(description='blood_flow_rest: the rest service for blood_flow')
+
+    parser.add_argument('-c', '--config', required=True, help="conductor config file ", default="conductor.yml")
+    parser.add_argument('-l', '--logfile',help="file to log to ", default="nels-galaxy.log")
+    parser.add_argument('-v', '--verbose', default=4, action="count",  help="Increase the verbosity of logging output")
+    args = parser.parse_args()
+
+    instances = init(args.config)
+
+    if args.logfile:
+        logger.init(name='tos-api', log_file=args.logfile )
+    else:
+        logger.init(name='tos-api')
+
+
+    while True:
+        # 1. Loop through all instances.
+
+        for instance in instances:
+
+            instance_name = instance['name']
+            print(f"Instance: '{instance_name}'")
+            helper_api = instance['api']
+
+#            api_requests.set_token(instance['token'])
+#            print(f"Token: {instance['token']}" )
+
+            # Update job states
+            active_jobs = update_job_states(instance['api'], instance_name, ['new', 'waiting', 'queued', 'running'])
+            pre_queued_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'pre-queueing'})
+
+            if len(pre_queued_jobs):
+
+                if 'api_key' in instance:
+                    galaxy_instance = GalaxyInstance(instance['galaxy_url'], key=instance['api_key'])
+
+                print( pre_queued_jobs )
+
+                info = helper_api.get_info()
+                print( "Info: ", info)
+
+                jobs_to_start = instance['max_exports'] - active_jobs
+                for pre_queued_job in pre_queued_jobs:
+                    if not jobs_to_start:
+                        break
+
+                    if info['free_gb'] < 30:
+                        # Not enough free disk space to do this, alert sysadmin
+                        print( "Not enough free space for export, email admin.")
+                        break
+                    else:
+
+                        export_id = galaxy_instance.histories.export_history(pre_queued_job['history_id'], maxwait=1, gzip=True)
+                        if export_id is None or export_id == '':
+                            history = nels_galaxy_api.get_history_export(history_id=pre_queued_job['history_id'])
+
+                            if history is not None and history != '':
+                                nels_galaxy_api.update_export(pre_queued_job['id'], {"export_id": history['export_id'], 'state': 'new'})
+                            else:
+                                print(f"No history id associated with {export_id}")
+
+                        else:
+                            export = nels_galaxy_api.get_history_export(export_id=export_id)
+                            nels_galaxy_api.update_export(pre_queued_job['id'], {"export_id": export_id, 'state': export['state']})
+
+                        jobs_to_start -= 1
+
+            finished_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'ok'})
+            for f_job in finished_jobs:
+                fetch_history(f_job['id'], instance['helper_url'], instance['token'])
+
+            push_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'fetch-ok'})
+            for p_job in push_jobs:
+                push_history_to_nels_storage(p_job['id'], instance['helper_url'])
+
+
+        print( "..." )
+        time.sleep( sleep_time )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+
+import argparse
+
+import pprint as pp
+import sys
+from tabulate import tabulate
+
+sys.path.append(".")
+
+from Crypto.Cipher import Blowfish
+import codecs
+
+
+import kbr.config_utils as config_utils
+import nels_galaxy_api.db as nels_galaxy_db
+import kbr.args_utils as args_utils
+import kbr.string_utils as string_utils
+from bioblend.galaxy import GalaxyInstance
+
+
+db = nels_galaxy_db.DB()
+id_cipher = None
+galaxy_instance = None
+
+def galaxy_init(galaxy_config:dict) -> None:
+    if 'galaxy' not in galaxy_config:
+        raise RuntimeError('galaxy entry not found in galaxy config')
+
+    if 'database_connection' not in galaxy_config['galaxy']:
+        raise RuntimeError('database_connection  entry not found in galaxy config')
+
+    db.connect( galaxy_config['galaxy']['database_connection'])
+    db.create_tos_table()
+
+    if 'id_secret' not in galaxy_config['galaxy']:
+        id_secret = "USING THE DEFAULT IS NOT SECURE!"
+    else:
+        id_secret = galaxy_config['galaxy']['id_secret']
+
+    global id_cipher
+    id_cipher = Blowfish.new(id_secret.encode('utf-8'), mode=Blowfish.MODE_ECB)
+
+    if 'api_key' in galaxy_config['galaxy']:
+        global galaxy_instance
+        galaxy_instance = GalaxyInstance('https://usegalaxy.no', key=galaxy_config['galaxy']['api_key'])
+
+
+def decrypt_value(value:str) -> str:
+    value_hex = codecs.decode(value, 'hex')
+    decrypted_value = id_cipher.decrypt( value_hex ).decode("utf-8").lstrip("!")
+#    logger.debug( "decrypted value {}".format( decrypted_value_value))
+
+    return decrypted_value
+
+def encrypt_value(value:str) -> str:
+    value = value.encode('utf-8')
+    s = (b"!" * (8 - len(value) % 8)) + value
+    # Encrypt
+    return codecs.encode(id_cipher.encrypt(s), 'hex')
+
+
+def history_exports(commands = []):
+    user_id = commands.pop( 0 )
+    if len( commands):
+        histories = db.get_all_user_history_exports( user_id )
+    else:
+        histories = db.get_user_history_exports( user_id )
+
+    print( tabulate(histories, {'ha_id':'id'}, tablefmt="psql" ))
+
+def history_export(history_id:int):
+
+    e = galaxy_instance.histories.export_history(history_id)
+
+    print( e )
+
+def histories(user_id:int):
+
+    if user_id == 'all':
+        histories = db.get_all_histories( user_id )
+    else:
+        histories = db.get_user_histories( user_id )
+
+    print( tabulate(histories, {'ha_id':'id'}, tablefmt="psql" ))
+
+
+def users():
+    users = db.get_users( )
+    print( tabulate(users, {'ha_id':'id'}, tablefmt="psql" ))
+
+def exports(commands):
+    if len( commands):
+        histories = db.get_all_exports(  )
+    else:
+        histories = db.get_exports()
+
+    print( tabulate(histories, {'ha_id':'id'}, tablefmt="psql" ))
+
+
+
+def main():
+
+    commands = ['encrypt', 'decrypt', 'history-exports', 'export', 'histories', 'users', 'exports']
+
+    parser = argparse.ArgumentParser(description='blood_flow_rest: the rest service for blood_flow')
+
+    parser.add_argument('-g', '--galaxy-config', required=True, help="galaxy config file")
+    parser.add_argument('-a', '--api-key', required=False, help="galaxy api-key (user dependent!)")
+    parser.add_argument('-v', '--verbose', default=4, action="count",  help="Increase the verbosity of logging output")
+    parser.add_argument('command', nargs='+', help="{}".format(",".join(commands)))
+
+    args = parser.parse_args()
+
+    galaxy_config = config_utils.readin_config_file( args.galaxy_config )
+    if args.api_key is not None:
+        galaxy_config['galaxy']['api_key'] = args.api_key
+
+    print( args.api_key )
+
+
+
+#    logger.set_log_level( args.verbose )
+#   logger.info( 'startup')
+
+
+    args_utils.min_count(1, len(args.command), msg="tos_cli takes one of the following commands: {}".format(string_utils.comma_sep(commands)))
+
+
+    command = args.command.pop(0)
+    if command in ['history-exports', 'histories', 'users', 'exports']:
+        galaxy_init( galaxy_config )
+
+    if command == 'encrypt':
+        args_utils.count(1, len(args.command), msg="encrypt requires a value")
+        print( encrypt_value(args.command.pop( 0 )))
+        sys.exit()
+    elif command == 'decrypt':
+        args_utils.count(1, len(args.command), msg="decrypt requires a value")
+        print( decrypt_value(args.command.pop( 0 )))
+        sys.exit()
+    elif command == 'history-exports':
+        args_utils.min_count(1, len(args.command), msg="history-exports requires an user-id")
+        history_exports(args.command)
+        sys.exit()
+    elif command == 'histories':
+        args_utils.min_count(1, len(args.command), msg="histories requires an user-id or all")
+        histories(args.command.pop(0))
+        sys.exit()
+    elif command == 'users':
+        users()
+        sys.exit()
+    elif command == 'export':
+        args_utils.count(1, len(args.command), msg="export requires a history-id")
+        history_export(args.command.pop(0))
+        sys.exit()
+    elif command == 'exports':
+        exports(args.command)
+        sys.exit()
+    else:
+        print("The tool support the following commands: {}\n".format(string_utils.comma_sep( commands )))
+        parser.print_usage()
+        parser.add_argument('command', nargs='+', help="{}".format(",".join(commands)))
+        sys.exit( 1 )
+
+
+
+
+if __name__ == "__main__":
+    main()
+
+
+# class ExportBulk ( Export ):
+#
+#     def endpoint(self):
+#         return("/export/")
+#
+#     def post(self, instance:str, user:str=None):
+#         #        args =  self.arguments()
+#         #post_values =  self.post_values()
+#         nels_id = self.get_body_argument("nelsId", default=None)
+#         location = self.get_body_argument("selectedFiles", default=None)
+#         # This is a usegalaxy instance, get the information from the session
+#
+#         #This will not work!, need to use the CLI for this as the token will be wrong
+#         histories = requests.get_user_histories(instance, user_id)
+#         for history in histories:
+#             try:
+#                 self._register_export(instance, user, history['id'], nels_id, location)
+#                 self.send_response_204()
+#             except:
+#                 self.send_response_400()

@@ -1,0 +1,12 @@
+
+galaxy_config: galaxy.yml
+name: usegalaxy.no
+key: key_in
+port: 8888
+
+tos_server: true
+grace_period: 14 # in days
+full_api: true
+proxy_keys: {'key_proxy1': 'galaxy1.no',
+             'key_proxy2': 'galaxy2.no'}
+
