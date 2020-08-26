@@ -76,7 +76,7 @@ class GalaxyHandler( tornado.BaseHandler ):
                 return None
 #                return self.send_response_403()
 
-            session_key = utils.decrypt_cookie( cookie )
+            session_key = utils.decrypt_value( cookie )
 
         return session_key
 
@@ -374,7 +374,8 @@ class ExportsListProxy ( GalaxyHandler ):
 
     def get(self):
         logger.debug( "proxy export list")
-        self.check_token()
+        # Will not check token here as relyin on the session id instead
+#        self.check_token()
         user = self.get_user()
 
         # cannot proxy to it-self as single threaded by default, so if proxy-tokens are set dont use the proxy
