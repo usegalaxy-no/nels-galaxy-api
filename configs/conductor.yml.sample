@@ -7,7 +7,7 @@ nels_galaxy_key: "GET KEY FROM KIM"
 
 mq_uri: amqps://GET-DETAILS-FROM-KIM/nels_galaxy
 
-sleep: 15
+sleep_time: 15
 
 nodes: [{"galaxy_url": "https://test.usegalaxy.no/",
          "api_key": "ADMIN API-KEY FROM GALAXY WEB INTERFACE",
