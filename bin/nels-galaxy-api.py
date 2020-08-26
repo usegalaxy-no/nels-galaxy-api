@@ -18,8 +18,8 @@ import nels_galaxy_api.db as nels_galaxy_db
 import nels_galaxy_api.utils as utils
 import nels_galaxy_api.api_requests as requests
 
-VERSION = '0.0.1'
-DEV = True
+VERSION = '1.0.0'
+DEV = False
 
 
 def encrypt_ids(entry:any)-> []:
