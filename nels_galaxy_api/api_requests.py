@@ -2,6 +2,7 @@ from requests import Request, Session
 
 import json
 import re
+import kbr.requests_utils as requests_utils
 
 
 class ApiRequests( object ):
@@ -107,3 +108,17 @@ class ApiRequests( object ):
 
     def get_exports(self):
         return self._request_get(f"{self._base_url}/exports/")
+
+
+# Need these as the request thingy has changed slightly
+def set_token(new_token:str):
+    requests_utils.set_token( new_token)
+
+def update_export(base_url:str, tracking_id:str, data:dict):
+    return requests_utils.patch(f"{base_url}/export/{tracking_id}/", data=data)
+
+def get_user_instance_exports(base_url, user:str, instance:str):
+    return requests_utils.get(f"{base_url}/exports/{user}/{instance}/")
+
+def update_export(base_url:str, tracking_id:str, data:dict):
+    return requests_utils.patch(f"{base_url}/export/{tracking_id}/", data=data)
