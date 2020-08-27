@@ -25,6 +25,7 @@ VERSION = '0.0.1'
 
 sleep_time = 15
 
+nels_galaxy_url = None
 nels_galaxy_api = None
 nels_galaxy_key = None
 nels_storage_client_key = None
@@ -39,13 +40,14 @@ def init(config_file:str) -> {}:
     config = config_utils.readin_config_file( config_file )
     logger.debug( config )
 
-    global nels_galaxy_api, nels_url, nels_storage_client_key, nels_storage_client_secret, nels_galaxy_key, sleep_time, tmp_dir
+    global nels_galaxy_api, nels_url, nels_storage_client_key, nels_storage_client_secret, nels_galaxy_key, sleep_time, tmp_dir, nels_galaxy_url
+    nels_galaxy_url            = config['nels_galaxy_api']
     nels_galaxy_api            = api_requests.ApiRequests(config['nels_galaxy_api'], config['nels_galaxy_key'])
     nels_url                   = config['nels_url']
     nels_storage_client_secret = config['nels_storage_client_secret']
     nels_storage_client_key    = config['nels_storage_client_key']
-    sleep_time                 = config['sleep_time']
-    tmp_dir                    = config['tmp_dir']
+    sleep_time                 = config.get('sleep_time', 15)
+    tmp_dir                    = config.get('tmp_dir', '/tmp')
 
 #    api_requests.set_token(config['nels_galaxy_key'])
 
@@ -58,8 +60,8 @@ def init(config_file:str) -> {}:
 
     for node in config['nodes']:
         node['api'] = api_requests.ApiRequests(node['helper_api'], node['helper_key'])
-        del node['helper_api']
-        del node['helper_key']
+#        del node['helper_api']
+#        del node['helper_key']
 
 
     logger.debug( config['nodes'])
@@ -118,7 +120,7 @@ def fetch_history(tracker_id:int, helper_url:str, token=None):
 #    token   = 'usegalaxy_secret'
 
     cmds = f"curl -H 'Authorization: bearer {token}' -Lo {outfile} {helper_url}/history/download/{export_id}/"
-    logger.debug( 'fetch-cmd:', cmds)
+    logger.debug( f'fetch-cmd: {cmds}' )
 
 
     update_str = "requests.update_export('{base_url}', '{tracker_id}', {state})"
@@ -128,9 +130,9 @@ def fetch_history(tracker_id:int, helper_url:str, token=None):
 
 
     submit_mq_job(cmds=cmds,
-                  pre=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=pre_state),
-                  success=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=success_state),
-                  error=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=error_state),
+                  pre=update_str.format(base_url=nels_galaxy_url, tracker_id=tracker_id, state=pre_state),
+                  success=update_str.format(base_url=nels_galaxy_url, tracker_id=tracker_id, state=success_state),
+                  error=update_str.format(base_url=nels_galaxy_url, tracker_id=tracker_id, state=error_state),
                   )
 
     nels_galaxy_api.update_export(tracker_id, {'state': 'fetch-queue'})
@@ -161,9 +163,9 @@ def push_history_to_nels_storage(tracker_id:int, helper_api:str):
 
 
     submit_mq_job(cmds=cmds,
-                  pre=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=pre_state),
-                  success=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=success_state),
-                  error=update_str.format(base_url=nels_galaxy_api, tracker_id=tracker_id, state=error_state),
+                  pre=update_str.format(base_url=nels_galaxy_url, tracker_id=tracker_id, state=pre_state),
+                  success=update_str.format(base_url=nels_galaxy_url, tracker_id=tracker_id, state=success_state),
+                  error=update_str.format(base_url=nels_galaxy_url, tracker_id=tracker_id, state=error_state),
                   post=f"rm {ssh_info['key_file']} {tracker['tmpfile']}"
                   )
 
@@ -193,19 +195,25 @@ def get_ssh_credential(nels_id:int):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='blood_flow_rest: the rest service for blood_flow')
+    parser = argparse.ArgumentParser(description='nels-galaxy-conductor: staging the history exports from Galaxy into NeLS')
 
     parser.add_argument('-c', '--config', required=True, help="conductor config file ", default="conductor.yml")
-    parser.add_argument('-l', '--logfile',help="file to log to ", default="nels-galaxy.log")
+    parser.add_argument('-l', '--logfile',help="file to log to ", default=None)
     parser.add_argument('-v', '--verbose', default=4, action="count",  help="Increase the verbosity of logging output")
     args = parser.parse_args()
 
-    instances = init(args.config)
 
     if args.logfile:
-        logger.init(name='nels-galaxy-api', log_file=args.logfile )
+        logger.init(name='nels-galaxy-conductor', log_file=args.logfile )
     else:
-        logger.init(name='nels-galaxy-api')
+        logger.init(name='nels-galaxy-conductor')
+
+    logger.set_log_level( args.verbose )
+
+    logger.info('init system')
+    instances = init(args.config)
+    logger.info('starting up...')
+
 
 
     while True:
@@ -262,14 +270,14 @@ def main():
 
             finished_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'ok'})
             for f_job in finished_jobs:
-                fetch_history(f_job['id'], instance['helper_url'], instance['token'])
+                fetch_history(f_job['id'], instance['helper_api'], instance['helper_key'])
 
             push_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'fetch-ok'})
             for p_job in push_jobs:
-                push_history_to_nels_storage(p_job['id'], instance['helper_url'])
+                push_history_to_nels_storage(p_job['id'], instance['helper_api'])
 
 
-        logger.debug( "..." )
+        logger.debug( "sleeping ..." )
         time.sleep( sleep_time )
 
 
