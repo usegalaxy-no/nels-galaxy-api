@@ -226,15 +226,13 @@ def main():
             logger.info(f"Handling instance: '{instance_name}'")
             helper_api = instance['api']
 
-#            api_requests.set_token(instance['token'])
-#            print(f"Token: {instance['token']}" )
+            pre_queued_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'pre-queueing'})
 
             try:
                 # Update job states
                 active_jobs = update_job_states(instance['api'], instance_name, ['new', 'waiting', 'queued', 'running'])
-                pre_queued_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'pre-queueing'})
             except Exception as e:
-                logger.error(f"Could not get job states from {instance_name} --> {e}")
+                logger.error(f"Could not connect to nels-galaxy-api conductor instance --> {e}")
                 continue
 
             if len(pre_queued_jobs):
