@@ -30,20 +30,22 @@ nels_galaxy_key = None
 nels_storage_client_key = None
 nels_storage_client_secret = None
 nels_url = None
+tmp_dir = "/tmp/"
 
 mq = None
 
 
 def init(config_file:str) -> {}:
     config = config_utils.readin_config_file( config_file )
-    print( config )
+    logger.debug( config )
 
-    global nels_galaxy_api, nels_url, nels_storage_client_key, nels_storage_client_secret, nels_galaxy_key, sleep_time
+    global nels_galaxy_api, nels_url, nels_storage_client_key, nels_storage_client_secret, nels_galaxy_key, sleep_time, tmp_dir
     nels_galaxy_api            = api_requests.ApiRequests(config['nels_galaxy_api'], config['nels_galaxy_key'])
     nels_url                   = config['nels_url']
     nels_storage_client_secret = config['nels_storage_client_secret']
     nels_storage_client_key    = config['nels_storage_client_key']
     sleep_time                 = config['sleep_time']
+    tmp_dir                    = config['tmp_dir']
 
 #    api_requests.set_token(config['nels_galaxy_key'])
 
@@ -60,7 +62,7 @@ def init(config_file:str) -> {}:
         del node['helper_key']
 
 
-    print( config['nodes'])
+    logger.debug( config['nodes'])
 
     return config['nodes']
 
@@ -70,20 +72,18 @@ def update_job_states(helper_api:str, instance:str, states:[str]) -> int:
 
     for state in states:
         exports = nels_galaxy_api.get_instance_exports(instance, {'state': state})
-        pp.pprint( f"{instance}/{state} --> Exports: " )
+        logger.debug( f"{instance}/{state} --> Exports: " )
         for export in exports:
-#            print( "State:", export['state'])
-#            pp.pprint( export )
             history_export = helper_api.get_history_export(export['export_id'])
             if history_export['state'] != state:
-                print( f"EXPORT --> {export}")
-                print( f"Changing state for export-tracking:{export['export_id']} from '{state}' to '{history_export['state']}'")
+                logger.debug( f"EXPORT --> {export}")
+                logger.info( f"Changing state for export-tracking:{export['export_id']} from '{state}' to '{history_export['state']}'")
                 nels_galaxy_api.update_export(export['id'], {"state": history_export['state']})
 
             if history_export['state'] in ['new', 'waiting', 'queued', 'running']:
                 active += 1
 
-    print( f"{active} active of job(s) for {instance}")
+    logger.info( f"{active} active of job(s) for {instance}")
 
     return active
 
@@ -97,7 +97,7 @@ def submit_mq_job(cmds:[], pre:str=None,  success:str=None, error:str=None, post
                'post': post}
 
     if mq is None:
-        print('MQ not configured, cannot send message')
+        logger.error('MQ not configured, cannot send message')
         return
 
     mq.publish(body=json.dumps(payload))
@@ -110,7 +110,7 @@ def fetch_history(tracker_id:int, helper_url:str, token=None):
 
     export_id = tracker['export_id']
 
-    outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir="/var/tmp/"), export_id)
+    outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
 #    export['tmpfile'] = outfile
     nels_galaxy_api.update_export(tracker_id, {'tmpfile':outfile})
 
@@ -118,7 +118,7 @@ def fetch_history(tracker_id:int, helper_url:str, token=None):
 #    token   = 'usegalaxy_secret'
 
     cmds = f"curl -H 'Authorization: bearer {token}' -Lo {outfile} {helper_url}/history/download/{export_id}/"
-    print( 'fetch-cmd:', cmds)
+    logger.debug( 'fetch-cmd:', cmds)
 
 
     update_str = "requests.update_export('{base_url}', '{tracker_id}', {state})"
@@ -148,11 +148,11 @@ def push_history_to_nels_storage(tracker_id:int, helper_api:str):
     create_time = re.sub(r'\.\d+', '', create_time)
     history['name'] = history['name'].replace(" ", "_")
     dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
-#    print(dest_file)
+
 
 
     cmds = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
-    print( "CMD:", cmds)
+    logger.debug( "CMD:", cmds)
 
     update_str = "requests.update_export('{base_url}', '{tracker_id}', {state})"
     pre_state= "{'state':'nels-transfer-running'}"
@@ -177,12 +177,12 @@ def get_ssh_credential(nels_id:int):
 #    api_url = 'https://test-fe.cbu.uib.no/nels-'
 
     api_url = nels_url + "storage2/users/" + nels_id
-    print( api_url )
+    logger.debug( f"API URL: {api_url}" )
     response =  requests.get(api_url, auth=(nels_storage_client_key, nels_storage_client_secret))
     if(response.status_code == requests.codes.ok):
         json_response = response.json()
         # write key to a tmp file
-        tmp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".txt", dir="/var/tmp/", delete=False)
+        tmp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".txt", dir=tmp_dir, delete=False)
         tmp.write( json_response['key-rsa'])
         tmp.close()
         json_response['key_file'] = tmp.name
@@ -203,9 +203,9 @@ def main():
     instances = init(args.config)
 
     if args.logfile:
-        logger.init(name='tos-api', log_file=args.logfile )
+        logger.init(name='nels-galaxy-api', log_file=args.logfile )
     else:
-        logger.init(name='tos-api')
+        logger.init(name='nels-galaxy-api')
 
 
     while True:
@@ -214,7 +214,7 @@ def main():
         for instance in instances:
 
             instance_name = instance['name']
-            print(f"Instance: '{instance_name}'")
+            logger.info(f"Handling instance: '{instance_name}'")
             helper_api = instance['api']
 
 #            api_requests.set_token(instance['token'])
@@ -229,10 +229,10 @@ def main():
                 if 'api_key' in instance:
                     galaxy_instance = GalaxyInstance(instance['galaxy_url'], key=instance['api_key'])
 
-                print( pre_queued_jobs )
+                logger.debug( pre_queued_jobs )
 
                 info = helper_api.get_info()
-                print( "Info: ", info)
+                logger.debug( "Info: ", info)
 
                 jobs_to_start = instance['max_exports'] - active_jobs
                 for pre_queued_job in pre_queued_jobs:
@@ -241,7 +241,7 @@ def main():
 
                     if info['free_gb'] < 30:
                         # Not enough free disk space to do this, alert sysadmin
-                        print( "Not enough free space for export, email admin.")
+                        logger.error( "Not enough free space for export, email admin.")
                         break
                     else:
 
@@ -252,7 +252,7 @@ def main():
                             if history is not None and history != '':
                                 nels_galaxy_api.update_export(pre_queued_job['id'], {"export_id": history['export_id'], 'state': 'new'})
                             else:
-                                print(f"No history id associated with {export_id}")
+                                logger.error(f"No history id associated with {export_id}")
 
                         else:
                             export = nels_galaxy_api.get_history_export(export_id=export_id)
@@ -269,7 +269,7 @@ def main():
                 push_history_to_nels_storage(p_job['id'], instance['helper_url'])
 
 
-        print( "..." )
+        logger.debug( "..." )
         time.sleep( sleep_time )
 
 
