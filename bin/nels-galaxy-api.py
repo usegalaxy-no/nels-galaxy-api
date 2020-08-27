@@ -386,6 +386,7 @@ class ExportsListProxy ( GalaxyHandler ):
 
         results = []
         for tracking in tracking:
+            export_id = tracking['export_id']
 
             if export_id != '' and export_id is not None:
                 export_id = utils.decrypt_value( tracking ['export_id'])
