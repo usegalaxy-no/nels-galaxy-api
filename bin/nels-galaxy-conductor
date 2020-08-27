@@ -113,6 +113,7 @@ def fetch_history(tracker_id:int, helper_url:str, token=None):
     export_id = tracker['export_id']
 
     outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
+    outfile = "{}/{}.tgz".format(tmp_dir, export_id)
 #    export['tmpfile'] = outfile
     nels_galaxy_api.update_export(tracker_id, {'tmpfile':outfile})
 
