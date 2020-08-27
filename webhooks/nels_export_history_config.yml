@@ -17,12 +17,13 @@ function: >
   console.log(user_email);
 
 
-
   nels_storage_url  = "https://nels.bioinfo.no/welcome.xhtml?";
-  nels_storage_url: https://test-fe.cbu.uib.no/nels/welcome.xhtml";
+  nels_storage_url += "appCallbackUrl=https://usegalaxy.no/nels-galaxy/export/"+galaxy_instance+"/"+user_email+"/"+history_id+"/";
 
-  nels_storage_url  = "{{nels_user_portal_url}}?";
-  nels_storage_url += "appCallbackUrl=https://{{galaxy_host}}/nels-galaxy//export/"+galaxy_instance+"/"+user_email+"/"+history_id+"/";
+
+  nels_storage_url  = "https://test-fe.cbu.uib.no/nels/welcome.xhtml?";
+  nels_storage_url += "appCallbackUrl=https://test.usegalaxy.no/nels-galaxy/export/"+galaxy_instance+"/"+user_email+"/"+history_id+"/";
+
 
 
   console.log(nels_storage_url);
