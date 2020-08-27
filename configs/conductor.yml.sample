@@ -6,6 +6,7 @@ nels_galaxy_api: "https://test.usegalaxy.no/nels-galaxy" # or "https://usegalaxy
 nels_galaxy_key: "GET KEY FROM KIM"
 
 mq_uri: amqps://GET-DETAILS-FROM-KIM/nels_galaxy
+tmp_dir: /srv/tmp
 
 sleep_time: 15
 
