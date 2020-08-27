@@ -128,7 +128,7 @@ class BaseHandler( RequestHandler ):
             return
 
     def post_values(self):
-        data = json_decode( self.request.body() )
+        data = json_decode( self.request.body )
         return data
 
 
