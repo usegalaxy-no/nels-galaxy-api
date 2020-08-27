@@ -271,10 +271,12 @@ def main():
 
             finished_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'ok'})
             for f_job in finished_jobs:
+                logger.info(f"fetching history export {f_job['id']}")
                 fetch_history(f_job['id'], instance['helper_api'], instance['helper_key'])
 
             push_jobs = nels_galaxy_api.get_instance_exports(instance_name, {'state': 'fetch-ok'})
             for p_job in push_jobs:
+                logger.info(f"pushing history export {p_job['id']}")
                 push_history_to_nels_storage(p_job['id'], instance['helper_api'])
 
 
