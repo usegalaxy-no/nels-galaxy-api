@@ -308,13 +308,12 @@ class HistoryDownload ( GalaxyHandler ):
         chunk_size = 1024 * 1024 * 1 # 1 MiB
 
         export_id = utils.decrypt_value( export_id )
-
         export = db.get_export( export_id )[0]
 
         try:
 
             dataset = db.get_dataset(export['dataset_id'])
-            filename = utils.construct_file_path(obj_id=dataset['id'], file_dir=galaxy_config['galaxy']['file_path'])
+            filename = utils.construct_file_path(obj_id=dataset['id'], file_dir=galaxy_file_path)
             logger.debug( "start the download")
 
             with open(filename, 'rb') as f:
@@ -390,7 +389,7 @@ class ExportsListProxy ( GalaxyHandler ):
 
             if export_id != '' and export_id is not None:
                 export_id = utils.decrypt_value( tracking ['export_id'])
-                
+
             export = db.get_export( export_id)
             results.append({ 'name': export[0]['name'],
                              'id': tracking['id'],
