@@ -1,7 +1,6 @@
 from requests import Request, Session
 
 import json
-import re
 import kbr.requests_utils as requests_utils
 
 
@@ -119,6 +118,3 @@ def update_export(base_url:str, tracking_id:str, data:dict):
 
 def get_user_instance_exports(base_url, user:str, instance:str):
     return requests_utils.get(f"{base_url}/exports/{user}/{instance}/")
-
-def update_export(base_url:str, tracking_id:str, data:dict):
-    return requests_utils.patch(f"{base_url}/export/{tracking_id}/", data=data)
