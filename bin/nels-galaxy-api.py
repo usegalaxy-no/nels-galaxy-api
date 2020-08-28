@@ -82,7 +82,7 @@ class GalaxyHandler( tornado.BaseHandler ):
 
     def get_user(self):
         session_key = self.get_session_key()
-        user = db.get_user(session_key)
+        user = db.get_user_from_session(session_key)
         return user
 
 
@@ -167,7 +167,7 @@ class RootHandler ( tornado.BaseHandler ):
 
     def get(self):
         logger.debug( "get root")
-        self.check_token()
+#        self.check_token()
         return self.send_response( data={'name': 'nels-galaxy-api', 'version': VERSION} )
 
     def post(self):
@@ -209,6 +209,7 @@ class Users ( GalaxyHandler ):
         logger.debug( "get users")
         self.check_token()
 
+
         users = encrypt_ids(db.get_users())
         return self.send_response( data=users )
 
@@ -218,10 +219,17 @@ class UserHistories ( GalaxyHandler ):
     def endpoint(self):
         return("/")
 
-    def get(self, user_id):
+    def get(self, user_email):
         logger.debug( "get user histories")
         self.check_token()
-        user_histories = encrypt_ids(db.get_user_histories(user_id))
+        user =  db.get_user(email=user_email)
+        if user is None or user == []:
+            return self.send_response_404()
+
+        # Should only be one user with a given email!
+        user = user[0]
+
+        user_histories = encrypt_ids(db.get_user_histories(user['id']))
         return self.send_response( data=user_histories )
 
 
@@ -233,10 +241,17 @@ class UserExports ( GalaxyHandler ):
     def endpoint(self):
         return("/")
 
-    def get(self, user_id):
+    def get(self, user_email):
         logger.debug( "get user exports")
         self.check_token()
-        user_exports = encrypt_ids(db.get_user_history_exports(user_id))
+        user =  db.get_user(email=user_email)
+        if user is None or user == []:
+            return self.send_response_404()
+
+        # Should only be one user with a given email!
+        user = user[0]
+
+        user_exports = encrypt_ids(db.get_user_history_exports(user['id']))
         return self.send_response( data=user_exports )
 
 
