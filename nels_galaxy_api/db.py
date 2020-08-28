@@ -48,7 +48,7 @@ class DB(object):
         return tos
 
 
-    def get_user(self, session_key:str) -> {}:
+    def get_user_from_session(self, session_key:str) -> {}:
         session = self.get_session( session_key)
 
         if session is None or session[0]['is_valid'] != True or session[0]['user_id'] is None:
@@ -67,6 +67,8 @@ class DB(object):
 
         return user
 
+    def get_user(self, **values) -> {}:
+        return self._db.get('galaxy_user', **values)
 
     def update_tos(self, tos:dict) -> None:
         self._db.update('nels_tos', tos, {'id': tos['id']} )
