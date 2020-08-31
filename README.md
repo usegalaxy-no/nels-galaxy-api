@@ -141,7 +141,6 @@ Add the following entry in your nginx to be able to accessing it at http://\<SIT
 
 Add the following entry in your appache2/httpd be able to accessing it at http://\<SITE>/nels-galaxy/
 
-Drop the location bit?
 
 ```
         <Location /nels-galaxy>
@@ -183,16 +182,28 @@ Setup looks good
 ### Installing the webhook
 
 ```
+# from with in the nels-galaxy-api directory
 mkdir -p <GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export/
-cp <NELS-GALAXY-API/webhooks/nels_export_history_config.yml <GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export/config.yml
+cp webhooks/nels_export_history_config.yml <GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export/config.yml
 ```
 
 By default the plugin uses the test server, remove the entry to switch to the production server instead.
 
-**Note** the webhooks needs to be with in the galaxy server dir. It will not work running them from a external config 
+
+
+
+**Notes**
+
+
+
+1. Ensure that the file is readable by the user running galaxy ```namei -mo /<GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export_history/config.yml```
+
+
+
+ It looks like the webhooks needs to be with in the galaxy server dir. It will not work running them from a external config 
 directory as done with the galaxy project ansible-playbook (and thus usegalaxy.no). 
 
-In  
+In the galaxy.yml enable webhooks (if not already done)  
 
  webhooks_dir: config/plugins/webhooks/nels/
 
