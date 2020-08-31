@@ -12,6 +12,7 @@ import datetime
 import kbr.log_utils as logger
 import kbr.config_utils as config_utils
 import kbr.string_utils as string_utils
+import kbr.version_utils as version_utils
 
 import nels_galaxy_api.tornado as tornado
 import nels_galaxy_api.db as nels_galaxy_db
@@ -101,6 +102,7 @@ def galaxy_init(galaxy_config:dict) -> None:
 
     logger.info( "init from galaxy-config ")
 
+
     # Galaxy specific things:
     if 'galaxy' not in galaxy_config:
         raise RuntimeError('galaxy entry not found in galaxy config')
@@ -155,6 +157,12 @@ def init(config_file:dict) -> None:
         db.create_export_tracking_table()
         global proxy_keys
         proxy_keys = config.get('proxy_keys', [])
+
+
+    global VERSION
+    VERSION = version_utils.as_string()
+
+
 
 
     return config
@@ -418,6 +426,20 @@ class ExportsListProxy ( GalaxyHandler ):
         return self.send_response( data=results )
 
 
+class ProxyTest ( GalaxyHandler ):
+
+    def endpoint(self):
+        return("/proxy/")
+
+
+    def get(self):
+        logger.debug( "proxy endpoint test")
+        logger.debug( f"Having proxy_keys {proxy_keys}" )
+        self.check_token( proxy_keys  )
+        data = {'instance': instance_name, 'version': VERSION, 'proxy-connection': True}
+        return self.send_response( data=data )
+
+
 
 class Tos ( GalaxyHandler ):
 
@@ -600,7 +622,6 @@ def main():
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy),
 
-
             (r'/history/export/(\w+)?$', HistoryExport), # export_id, last one pr history is default
             (r'/history/export/?$', HistoryExport), # possible to search by history_id
             (r'/history/exports/(all)/?$', HistoryExportsList), # for the local instance, all, brief is default
@@ -628,6 +649,7 @@ def main():
 
                 (r"/exports/(all)/({domain_match})/?$".format(domain_match=string_utils.domain_match), ExportsList), # user_email, instance. If user_email == all, export all entries for instance
                 (r'/exports/?$', ExportsList), # All entries in the table
+                (r'/proxy/?$', ProxyTest), # can one connect with the proxy credentials
             ]
 
 
