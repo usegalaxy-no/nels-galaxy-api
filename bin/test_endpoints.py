@@ -20,7 +20,7 @@ def main():
     config = config_utils.readin_config_file( args.config_file)
 
     logger.init(name='nels-galaxy-endpoints')
-    logger.set_log_level( args.verbose )
+
     local_api = api_requests.ApiRequests(base_url=f"http://localhost:{config['port']}", token=config['key'])
     proxy_api = api_requests.ApiRequests(base_url=config['proxy_url'], token=config['proxy_key'])
 
