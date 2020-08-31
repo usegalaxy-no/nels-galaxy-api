@@ -24,7 +24,8 @@ def main():
     local_api = api_requests.ApiRequests(base_url=f"http://localhost:{config['port']}", token=config['key'])
     proxy_api = api_requests.ApiRequests(base_url=config['proxy_url'], token=config['proxy_key'])
 
-    print('basic connection (no key)')
+
+    print('Basic connection (no key)')
     base = local_api.get_base()
     print( f"Basic: {base['name']} version: {base['version']}" )
     print("===============================\n")
@@ -48,6 +49,7 @@ def main():
         print("-------------------------------")
         print( "Testing local proxy connection ")
         print("--------------------------------\n")
+
         local_proxy_api = api_requests.ApiRequests(base_url=args.local_proxy, token=config['key'])
         print('basic connection (no key) local proxy')
         base = local_proxy_api.get_base()
