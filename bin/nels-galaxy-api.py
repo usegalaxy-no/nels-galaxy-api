@@ -432,7 +432,7 @@ class ProxyTest ( GalaxyHandler ):
 
     def get(self):
         logger.debug( "proxy endpoint test")
-        logger.debug( f"Having proxy_keys {proxy_keys}" )
+#        logger.debug( f"Having proxy_keys {proxy_keys}" )
         self.check_token( proxy_keys  )
         data = {'instance': instance_name, 'version': VERSION, 'proxy-connection': True}
         return self.send_response( data=data )
