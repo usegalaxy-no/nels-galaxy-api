@@ -152,6 +152,7 @@ class DB(object):
 
 
 
+
     def get_all_user_history_exports(self, user_id:int) -> []:
         q = '''select ha.id as export_id, ha.dataset_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
                from galaxy_user as ga, history as h, job_export_history_archive as ha, job 
@@ -245,3 +246,7 @@ class DB(object):
     def update_job(self, values:{}) -> {}:
         # This does not work, look into bioblend it.
         return self._db.update('job', values, {'id': values['id']})
+
+
+    def get_history(self, history_id:int) -> {}:
+        return self._db.get('history', id=history_id)

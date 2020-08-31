@@ -402,6 +402,7 @@ class ExportsListProxy ( GalaxyHandler ):
 
         # cannot proxy to it-self as single threaded by default, so if proxy-tokens are set dont use the proxy
         if proxy_keys is not None:
+            logger.debug('accesing the data using the proxy')
             tracking = db.get_export_trackings(user_email=user['email'], instance=instance_name)
         else:
             tracking = requests.get_user_instance_exports(proxy_url, user['email'], instance_name)
@@ -409,13 +410,10 @@ class ExportsListProxy ( GalaxyHandler ):
 
         results = []
         for tracking in tracking:
-            export_id = tracking['export_id']
+            history_id = utils.decrypt_value( tracking ['history_id'])
+            history = db.get_history(history_id)[0]
 
-            if export_id != '' and export_id is not None:
-                export_id = utils.decrypt_value( tracking ['export_id'])
-
-            export = db.get_export( export_id)
-            results.append({ 'name': export[0]['name'],
+            results.append({ 'name': history['name'],
                              'id': tracking['id'],
                                  'state': tracking['state'],
                                  'create_time': tracking['create_time'],
