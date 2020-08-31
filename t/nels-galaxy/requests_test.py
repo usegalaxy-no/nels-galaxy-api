@@ -4,7 +4,7 @@ import unittest
 import nels_galaxy_api.api_requests as requests
 
 
-base_url = 'http://localhost:8088'
+base_url = 'http://localhost:8008'
 instance = 'usegalaxy'
 user     = 3
 token    = 'my_secret'
