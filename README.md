@@ -29,18 +29,19 @@ An ansible role is available for the deployment of the old version of the softwa
 ## Installation
 
 
-Installation consists of 5 steps
+Installation consists of 4 steps
 
 1. install and configure the nels-galaxy-api
 3. configure the https proxying
 4. add and configure the webhook plugin to galaxy  
-5. share the admin api-key with the usegalaxy admin (to be able to trigger the history-export)
 5. running the server in production mode.
+
+Once the service is up and running you will need to 5. share the galaxy admin api-key (from the webinterface) 
+with the usegalaxy admin, this is to enable triggering the history-export through bioblend
 
 
 These instructions are for the test server setup and are using the provided nels-galaxy-test.yml.sample config file. 
-For production use the nels-galaxy-prod.yml.sample file instead. 
-They are almost identical except the name of the proxy-server to connect to.
+For production use the nels-galaxy-prod.yml.sample file instead. The files are almost identical except the name of the proxy-server to connect to.
 
 
 ### Install and Configure nels-galaxy-api
