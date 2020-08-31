@@ -29,14 +29,18 @@ An ansible role is available for the deployment of the old version of the softwa
 ## Installation
 
 
-Installation consists of 4 steps
+Installation consists of 5 steps
 
 1. install and configure the nels-galaxy-api
 3. configure the https proxying
 4. add and configure the webhook plugin to galaxy  
-4. run the service.
-5. share the admin api-key with the usegalaxy admin (to trigger the history-export)
+5. share the admin api-key with the usegalaxy admin (to be able to trigger the history-export)
+5. running the server in production mode.
 
+
+These instructions are for the test server setup and are using the provided nels-galaxy-test.yml.sample config file. 
+For production use the nels-galaxy-prod.yml.sample file instead. 
+They are almost identical except the name of the proxy-server to connect to.
 
 
 ### Install and Configure nels-galaxy-api
@@ -45,25 +49,71 @@ Installation consists of 4 steps
 Install the nels-galaxy-api.
 ```
 #Clone the repository
-git clone https://github.com/usegalaxy-no/nels-galaxy-api/
-cd nels-galaxy-api
+$ git clone https://github.com/usegalaxy-no/nels-galaxy-api/
+$ cd nels-galaxy-api
 #install virtual env and required libraries
-python3 -m venv venv
-source venv/bin/activate
-pip install wheel
-pip install -r requirements.txt
+$ python3 -m venv venv
+$ source venv/bin/activate
+$ pip install wheel
+$ pip install --upgrade pip
+$ pip install -r requirements.txt
+# make a copy of the config sample to use
+
+cp nels-galaxy-test.yml.sample nels-galaxy.yml 
+
 ```
 
 
-There arw two config files repository: nels-galaxy-test.yml for the test, and nels-galaxy-prod.yml for the production server.
+Edit the config-file nels-galaxy.yml.
 
 The following needs to filled in:
 1. path to the galaxy config file
-2. base url of the instance, eg galaxy-uib.bioinfo.no  
+2. hostname of the instance, eg test-fe2.cbu.uib.no   
 3. access-key: provided by one of the usegalaxy admins
 4. proxy-key: provided by one of the usegalaxy admins
 
-optionally if the localhost:8008 port is already being used change it
+**Notes**:
+1. The galaxy files needs to have the database connector and file-path defined, and should include the full filepath, 
+not only relative ones. 
+2. If the localhost:8008 port is already being used change it (```netstat -t | egrep 8008```)
+
+### Running the server (testing stage)
+
+
+```
+# if in a new terminal, change to the nels-galaxy-api directory
+$ source venb/bin/activate
+
+# run the server
+$ ./bin/nels-galaxy-api.py -c nels-galaxy.yml
+```
+
+**Test the connection ...**
+
+In a different terminal, and change into the same directory
+
+```
+# change to the nels-galaxy-api directory
+$ source venb/bin/activate
+$ ./bin/test_endpoints.py -c nels-galaxy.yml  
+Basic connection (no key)
+Basic: nels-galaxy-api version: 1.3.0
+===============================
+
+System info
+data disk: 84.54 percent free
+===============================
+
+Database connection
+Database contains 11 users
+===============================
+
+Proxy connection
+Proxy endpoing: test.usegalaxy.no running version 1.3.0
+===============================
+
+Setup looks good
+```
 
 ### Proxying
 
@@ -84,9 +134,13 @@ Add the following entry in your nginx to be able to accessing it at http://\<SIT
 
 ```
 
+
+
 #### apache2
 
 Add the following entry in your appache2/httpd be able to accessing it at http://\<SITE>/nels-galaxy/
+
+Drop the location bit?
 
 ```
         <Location /nels-galaxy>
@@ -94,11 +148,34 @@ Add the following entry in your appache2/httpd be able to accessing it at http:/
           Order allow,deny
           Allow from all
  
-          proxyPass "http://localhost:8081/"
-          proxyPassReverse "http://localhost:8801/"
+          proxyPass "http://localhost:8008"
+          proxyPassReverse "http://localhost:8808"
         </Location>
 
 
+```
+
+
+**Test the connection ...**
+
+In a different terminal, and in the same directory
+
+```
+$ source venv/bin/activate
+$ ./bin/test_endpoints.py -c nels-galaxy.yml  -l https://**HOSTNAME+PATH**/nels-galaxy
+-------------------------------
+Testing local proxy connection 
+--------------------------------
+
+basic connection (no key) local proxy
+Basic: nels-galaxy-api version: 1.3.0
+===============================
+
+System info local proxy
+data disk: 84.54 percent free
+===============================
+
+Setup looks good
 ```
 
 
@@ -113,28 +190,41 @@ By default the plugin uses the test server, remove the entry to switch to the pr
 
 **Note** the webhooks needs to be with in the galaxy server dir. It will not work running them from a external config 
 directory as done with the galaxy project ansible-playbook (and thus usegalaxy.no). 
- 
 
-### Running the server
+In  
 
-This is just one of many options of how to run the server, note it will write to a logfile cakked nels-galaxy.log
+ webhooks_dir: config/plugins/webhooks/nels/
+
+
+### Running the server (productino)
+
 
 ```
 # in the nels-galaxy-api directory
 source venb/bin/activate
 # when using the test server
-nohup ./bin/nels-galaxy-api.py -c nels-galaxy-test.yml -l nels-galaxy.log &
-# and for production
-nohup ./bin/nels-galaxy-api.py -c nels-galaxy-prod.yml -l nels-galaxy.log &
-
+nohup ./bin/nels-galaxy-api.py -c nels-galaxy.yml -l nels-galaxy.log &
 ```
 
+This will run the server in the background and write to a log named nels-galaxy.log in the current directory
+
+
+
+## Upgrade the nels-galaxy-api
+
+
+
+```
+# pull changes
+$ git pull
+$ pip install -r requirements.txt
+```
 
 
 
 ## nels-galaxy-conductor
 
-This is the program conducting the flow of triggering of history exports and the later transfers.
+This is the program conducting the flow of triggering of history exports and later the file transfers.
 
 ```
 nels_storage_client_key: "ASK KIDARNE"
@@ -159,6 +249,16 @@ nodes: [{"galaxy_url": "https://test.usegalaxy.no/",
 
 ```
 
+## mq_runner.py
+
+Runs the jobs in the rabbitmq queue
+
+```
+./bin/mq_runner.py -c conducter-config -T <threads
+
+```
+
+
 
 ## Design notes:
 
@@ -167,7 +267,7 @@ nodes: [{"galaxy_url": "https://test.usegalaxy.no/",
 Galaxy session cookies are session keys with encrypted with blowfish using the id_secret in the galaxy-config.
 
 
-This have only been tested on postgresql and is unlikely to work with
+The development has been done on postgresql and is unlikely to work with
 other databases
 
 The program will create the required table if it does not exist.
