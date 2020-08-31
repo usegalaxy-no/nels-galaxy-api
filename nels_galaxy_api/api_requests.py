@@ -52,6 +52,9 @@ class ApiRequests( object ):
 
 # Basic stuff shared between the two api's
 
+    def get_base(self) -> {}:
+        return self._request_get(f"{self._base_url}/")
+
     def get_info(self) -> {}:
         return self._request_get(f"{self._base_url}/info/")
 
@@ -108,6 +111,8 @@ class ApiRequests( object ):
     def get_exports(self):
         return self._request_get(f"{self._base_url}/exports/")
 
+    def get_proxy(self):
+        return self._request_get(f"{self._base_url}/proxy/")
 
 # Need these as the request thingy has changed slightly
 def set_token(new_token:str):
