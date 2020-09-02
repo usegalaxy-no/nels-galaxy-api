@@ -22,7 +22,7 @@ def main():
     logger.init(name='nels-galaxy-endpoints')
 
     local_api = api_requests.ApiRequests(base_url=f"http://localhost:{config['port']}", token=config['key'])
-    proxy_api = api_requests.ApiRequests(base_url=config['proxy_url'], token=config['proxy_key'])
+    proxy_api = api_requests.ApiRequests(base_url=config['master_url'], token=config['proxy_key'])
 
 
     print('Basic connection (no key)')
@@ -42,7 +42,7 @@ def main():
 
     print('Proxy connection')
     proxy_info = proxy_api.get_proxy()
-    print( f"Proxy endpoing: {proxy_info['instance']} running version {proxy_info['version']}" )
+    print( f"Proxy endpoint: {proxy_info['instance']} running version {proxy_info['version']}" )
     print("===============================\n")
 
     if args.local_proxy is not None:
