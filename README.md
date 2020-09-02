@@ -149,7 +149,7 @@ Add the following entry in your appache2/httpd be able to accessing it at http:/
           Allow from all
  
           proxyPass "http://localhost:8008"
-          proxyPassReverse "http://localhost:8808"
+          proxyPassReverse "http://localhost:8008"
         </Location>
 
 
