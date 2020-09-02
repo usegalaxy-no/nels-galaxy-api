@@ -214,7 +214,6 @@ In the galaxy.yml enable webhooks (if not already done)
 ```
 # in the nels-galaxy-api directory
 source venb/bin/activate
-# when using the test server
 nohup ./bin/nels-galaxy-api.py -c nels-galaxy.yml -l nels-galaxy.log &
 ```
 
