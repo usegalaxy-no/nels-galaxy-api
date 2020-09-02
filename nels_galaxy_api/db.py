@@ -116,6 +116,26 @@ class DB(object):
         values['update_time'] = datetime.datetime.now()
         self._db.update('nels_export_tracking', values, {'id': tracking_id})
 
+    def create_export_tracking_logs_table(self) -> None:
+        if self.table_exist('nels_export_tracking_log'):
+            return
+
+        q = '''CREATE TABLE nels_export_tracking_logs (
+                  id             SERIAL PRIMARY KEY,
+                  create_time    TIMESTAMP,
+                  tracking_id     INT,
+                  log            VARCHAR(80)
+               ); '''
+        self._db.do( q )
+
+
+    def add_export_tracking(self, tracking_id:int, state:str) -> None:
+        values = {'create_time':  datetime.datetime.now(),
+                  'tracking_id': tracking_id,
+                  'log': f"Changed state to {state}"}
+
+        self._db.add('nels_export_log', values)
+
 
     def get_export_trackings(self, **values):
         return self._db.get('nels_export_tracking', **values)
