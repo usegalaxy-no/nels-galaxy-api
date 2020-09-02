@@ -2,42 +2,40 @@ import kbr.db_utils as db
 import datetime
 
 
-
-
 class DB(object):
 
-    def connect(self, url:str) -> None:
-        self._db = db.DB( url )
+    def connect(self, url: str) -> None:
+        self._db = db.DB(url)
 
     def disconnect(self) -> None:
 
         if self._db is not None:
             self._db.close()
 
-    def table_exist(self, name:str) -> bool:
+    def table_exist(self, name: str) -> bool:
         q = f"SELECT to_regclass('{name}')"
-        table = self._db.get_as_dict( q )
+        table = self._db.get_as_dict(q)
         if table[0]['to_regclass'] is None:
             return False
 
         return True
 
-    def get_session(self, session_key:str) -> bool:
+    def get_session(self, session_key: str) -> bool:
 
         return self._db.get('galaxy_session', session_key=session_key)
 
-    def _init_user_tos(self, user_id:int) -> {}:
+    def _init_user_tos(self, user_id: int) -> {}:
         self._db.add('nels_tos', {'user_id': user_id,
                                   'status': 'grace',
-                                  'tos_date': datetime.datetime.now()+datetime.timedelta(days=14)})
+                                  'tos_date': datetime.datetime.now() + datetime.timedelta(days=14)})
 
-    def get_user_tos(self, session_key:str) -> {}:
-        session = self.get_session( session_key)
+    def get_user_tos(self, session_key: str) -> {}:
+        session = self.get_session(session_key)
 
         if session is None or session[0]['is_valid'] != True or session[0]['user_id'] is None:
             return None
 
-        tos  = self._db.get('nels_tos', user_id=session[0]['user_id'])
+        tos = self._db.get('nels_tos', user_id=session[0]['user_id'])
 
         if len(tos) == 0:
             self._init_user_tos(session[0]['user_id'])
@@ -47,15 +45,13 @@ class DB(object):
 
         return tos
 
-
-    def get_user_from_session(self, session_key:str) -> {}:
-        session = self.get_session( session_key)
+    def get_user_from_session(self, session_key: str) -> {}:
+        session = self.get_session(session_key)
 
         if session is None or session[0]['is_valid'] != True or session[0]['user_id'] is None:
             return None
 
-        user  = self._db.get('galaxy_user', id=session[0]['user_id'])
-
+        user = self._db.get('galaxy_user', id=session[0]['user_id'])
 
         if len(user) == 0:
             self._init_user_tos(session[0]['user_id'])
@@ -70,8 +66,8 @@ class DB(object):
     def get_user(self, **values) -> {}:
         return self._db.get('galaxy_user', **values)
 
-    def update_tos(self, tos:dict) -> None:
-        self._db.update('nels_tos', tos, {'id': tos['id']} )
+    def update_tos(self, tos: dict) -> None:
+        self._db.update('nels_tos', tos, {'id': tos['id']})
 
     def create_tos_table(self) -> None:
         if self.table_exist('nels_tos'):
@@ -84,8 +80,7 @@ class DB(object):
               tos_date       TIMESTAMP
               );
             '''
-        self._db.do( q )
-
+        self._db.do(q)
 
     def create_export_tracking_table(self) -> None:
         if self.table_exist('nels_export_tracking'):
@@ -105,48 +100,46 @@ class DB(object):
               tmpfile        VARCHAR(300)
               );
             '''
-        self._db.do( q )
+        self._db.do(q)
 
-
-    def add_export_tracking(self, values:{}):
+    def add_export_tracking(self, values):
         values['create_time'] = datetime.datetime.now()
-        self._db.add('nels_export_tracking', values)
 
-    def update_export_tracking(self, tracking_id:int, values:{}):
+        self._db.add('nels_export_tracking', values)
+        tracking_id = self._db.get_id('nels_export_tracking', **values)
+        self.add_export_tracking_log(tracking_id, state="Created")
+
+    def update_export_tracking(self, tracking_id: int, values: {}):
         values['update_time'] = datetime.datetime.now()
+        self.add_export_tracking_log(tracking_id, state=values['state'])
         self._db.update('nels_export_tracking', values, {'id': tracking_id})
 
     def create_export_tracking_logs_table(self) -> None:
         if self.table_exist('nels_export_tracking_log'):
             return
 
-        q = '''CREATE TABLE nels_export_tracking_logs (
+        q = '''CREATE TABLE nels_export_tracking_log (
                   id             SERIAL PRIMARY KEY,
                   create_time    TIMESTAMP,
                   tracking_id     INT,
                   log            VARCHAR(80)
                ); '''
-        self._db.do( q )
+        self._db.do(q)
 
-
-    def add_export_tracking(self, tracking_id:int, state:str) -> None:
-        values = {'create_time':  datetime.datetime.now(),
+    def add_export_tracking_log(self, tracking_id: int, state: str) -> None:
+        values = {'create_time': datetime.datetime.now(),
                   'tracking_id': tracking_id,
                   'log': f"Changed state to {state}"}
 
-        self._db.add('nels_export_log', values)
-
+        self._db.add('nels_export_tracking_log', values)
 
     def get_export_trackings(self, **values):
         return self._db.get('nels_export_tracking', **values)
 
-    def get_export_tracking(self, tracking_id:int):
+    def get_export_tracking(self, tracking_id: int):
         return self._db.get_single('nels_export_tracking', id=tracking_id)
 
-
-
-
-    def get_user_history_exports(self, user_id:int) -> []:
+    def get_user_history_exports(self, user_id: int) -> []:
         exports = self.get_all_user_history_exports(user_id)
 
         cleaned_exports = {}
@@ -160,8 +153,7 @@ class DB(object):
 
         return list(cleaned_exports.values())
 
-
-    def get_dataset(self, dataset_id:int) -> {}:
+    def get_dataset(self, dataset_id: int) -> {}:
 
         r = self._db.get_by_id('dataset', dataset_id)
 
@@ -170,10 +162,7 @@ class DB(object):
 
         return r
 
-
-
-
-    def get_all_user_history_exports(self, user_id:int) -> []:
+    def get_all_user_history_exports(self, user_id: int) -> []:
         q = '''select ha.id as export_id, ha.dataset_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
                from galaxy_user as ga, history as h, job_export_history_archive as ha, job 
                where ga.id = {user_id} and 
@@ -182,10 +171,9 @@ class DB(object):
                      and job.id = ha.job_id;
             '''
 
-        return( self._db.get_as_dict(q.format( user_id=user_id )))
+        return (self._db.get_as_dict(q.format(user_id=user_id)))
 
-
-    def get_export(self, export_id:int) -> []:
+    def get_export(self, export_id: int) -> []:
         q = '''select ha.id as export_id, ha.dataset_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
                from history as h, job_export_history_archive as ha, job 
                where ha.id = {export_id} and  
@@ -193,9 +181,9 @@ class DB(object):
                      and job.id = ha.job_id;
             '''
 
-        return( self._db.get_as_dict(q.format( export_id=export_id )))
+        return (self._db.get_as_dict(q.format(export_id=export_id)))
 
-    def get_latest_export_for_history(self, history_id:int) -> []:
+    def get_latest_export_for_history(self, history_id: int) -> []:
         q = '''select ha.id as export_id, ha.dataset_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
                from history as h, job_export_history_archive as ha, job 
                where ha.history_id = {history_id} and  
@@ -204,10 +192,9 @@ class DB(object):
                ORDER BY ha.id DESC LIMIT 1;
             '''
 
-        return( self._db.get_as_dict(q.format( history_id=history_id )))
+        return (self._db.get_as_dict(q.format(history_id=history_id)))
 
-
-    def get_exports(self, state:str="") -> []:
+    def get_exports(self, state: str = "") -> []:
         exports = self.get_all_exports()
 
         cleaned_exports = {}
@@ -222,16 +209,15 @@ class DB(object):
         if state != '':
             tmp_exports = {}
             for name in cleaned_exports:
-                export = cleaned_exports[ name ]
+                export = cleaned_exports[name]
                 if export['state'] == state:
-                    tmp_exports[ name ] = export
+                    tmp_exports[name] = export
 
             cleaned_exports = tmp_exports
 
         return list(cleaned_exports.values())
 
-
-    def get_all_exports(self,state:str="") -> []:
+    def get_all_exports(self, state: str = "") -> []:
         if state != "":
             state = f" and job.state = '{state}'"
 
@@ -243,30 +229,26 @@ class DB(object):
                order by ha.id;
             '''
 
-        return( self._db.get_as_dict(q.format(state=state)))
+        return (self._db.get_as_dict(q.format(state=state)))
 
-
-    def get_user_histories(self, user_id:int) -> []:
+    def get_user_histories(self, user_id: int) -> []:
         q = "select id, update_time, name, hid_counter from history where user_id={user_id};"
-        return( self._db.get_as_dict(q.format( user_id=user_id )))
+        return (self._db.get_as_dict(q.format(user_id=user_id)))
 
     def get_all_histories(self) -> []:
         q = "select id, update_time, user_id, name from history as h order by id;"
-        return( self._db.get_as_dict(q))
-
+        return (self._db.get_as_dict(q))
 
     def get_users(self) -> []:
         q = "select id, email, active, deleted from galaxy_user;"
-        return( self._db.get_as_dict(q))
+        return (self._db.get_as_dict(q))
 
-
-    def get_job(self, job_id:int) -> {}:
+    def get_job(self, job_id: int) -> {}:
         return self._db.get_by_id('job', job_id)
 
-    def update_job(self, values:{}) -> {}:
+    def update_job(self, values: {}) -> {}:
         # This does not work, look into bioblend it.
         return self._db.update('job', values, {'id': values['id']})
 
-
-    def get_history(self, history_id:int) -> {}:
+    def get_history(self, history_id: int) -> {}:
         return self._db.get('history', id=history_id)

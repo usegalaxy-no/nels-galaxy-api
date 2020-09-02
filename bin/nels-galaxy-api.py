@@ -16,22 +16,22 @@ import kbr.log_utils as logger
 import kbr.config_utils as config_utils
 import kbr.string_utils as string_utils
 import kbr.version_utils as version_utils
-import kbr.crypt_utils as crypt_utils
 
 import nels_galaxy_api.tornado as tornado
 import nels_galaxy_api.db as nels_galaxy_db
 import nels_galaxy_api.utils as utils
+import nels_galaxy_api.states as states
 import nels_galaxy_api.api_requests as api_requests
 
 version = '0.0.0'
-DEV = False
+DEV = True
 
 db = nels_galaxy_db.DB()
 galaxy_file_path = None
 
 master_url = None
 instance_id = None
-states = {}
+
 nels_url = None
 
 # when running as the master version
@@ -41,54 +41,6 @@ instances = None
 tos_grace_period = None
 # galaxy_config = None
 no_proxy = False  # The NGA-master does not need to use the proxy connections.
-
-
-def set_state(data: any) -> int:
-    global states
-    uuid = crypt_utils.create_uuid(5)
-    states[uuid] = data
-    return uuid
-
-
-def get_state(uuid: str, purge: bool = False):
-    global states
-
-    if uuid not in states:
-        return None
-
-    data = states[uuid]
-    if purge:
-        del states[uuid]
-
-    return data
-
-
-def encrypt_ids(entry: any) -> []:
-    if isinstance(entry, list):
-        return list_encrypt_ids(entry)
-
-    if entry == [] or entry == {}:
-        return entry
-
-    if isinstance(entry, dict):
-        for key in entry.keys():
-            if key == 'nels_id':
-                continue
-
-            if key == 'id' or key.find('_id') > -1 and isinstance(entry[key], int):
-                entry[f"{key}"] = utils.encrypt_value(entry[key])
-
-    else:
-        raise RuntimeError(f"Cannot change ids in {entry}")
-
-    return entry
-
-
-def list_encrypt_ids(entries: []) -> []:
-    for entry in entries:
-        entry = encrypt_ids(entry)
-
-    return entries
 
 
 class GalaxyHandler(tornado.BaseHandler):
@@ -119,7 +71,6 @@ class GalaxyHandler(tornado.BaseHandler):
         user = db.get_user_from_session(session_key)
         return user
 
-
 def galaxy_init(galaxy_config: dict) -> None:
     logger.info("init from galaxy-config ")
 
@@ -145,6 +96,7 @@ def galaxy_init(galaxy_config: dict) -> None:
     utils.init(id_secret)
 
     return
+
 
 
 def init(config_file: dict) -> None:
@@ -174,7 +126,7 @@ def init(config_file: dict) -> None:
     if 'master' in config and config['master']:
         logger.info("Running with the master API")
         db.create_export_tracking_table()
-        db.create_export_tracking_logs_table
+        db.create_export_tracking_logs_table()
 
         global proxy_keys, instances, no_proxy
         proxy_keys = {}
@@ -207,22 +159,6 @@ class RootHandler(tornado.BaseHandler):
 
     def get(self):
         logger.debug("get root")
-        #        self.check_token()
-        return self.send_response(data={'name': 'nels-galaxy-api', 'version': version})
-
-    def post(self):
-        logger.debug("post root")
-        self.check_token()
-        return self.send_response(data={'name': 'nels-galaxy-api', 'version': version})
-
-    def patch(self):
-        logger.debug("patch root")
-        self.check_token()
-        return self.send_response(data={'name': 'nels-galaxy-api', 'version': version})
-
-    def delete(self):
-        logger.debug("delete root")
-        self.check_token()
         return self.send_response(data={'name': 'nels-galaxy-api', 'version': version})
 
 
@@ -248,7 +184,7 @@ class State(tornado.BaseHandler):
     def get(self, state_id):
         logger.debug("get state")
         self.check_token()
-        data = get_state(state_id, True)
+        data = states.get(state_id, True)
         if data is None:
             return self.send_response_404()
 
@@ -264,7 +200,7 @@ class Users(GalaxyHandler):
         logger.debug("get users")
         self.check_token()
 
-        users = encrypt_ids(db.get_users())
+        users = utils.encrypt_ids( db.get_users() )
         return self.send_response(data=users)
 
 
@@ -283,7 +219,7 @@ class UserHistories(GalaxyHandler):
         # Should only be one user with a given email!
         user = user[0]
 
-        user_histories = encrypt_ids(db.get_user_histories(user['id']))
+        user_histories = utils.encrypt_ids(db.get_user_histories(user['id']))
         return self.send_response(data=user_histories)
 
 
@@ -302,8 +238,30 @@ class UserExports(GalaxyHandler):
         # Should only be one user with a given email!
         user = user[0]
 
-        user_exports = encrypt_ids(db.get_user_history_exports(user['id']))
+        user_exports = utils.encrypt_ids(db.get_user_history_exports(user['id']))
         return self.send_response(data=user_exports)
+
+
+class HistoryExportRequest(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/history/export/request")
+
+    def get(self):
+        logger.debug("request history export")
+
+        user = self.get_user()
+        data = {'user': user['email'], 'history_id': utils.encrypt_value(user['current_history_id'])}
+        uuid = states.set( data )
+
+        redirect_url = f"{nels_url}/welcome.xhtml"
+        redirect_url += f"?appCallbackUrl={master_url}/export/" + instance_id + "/" + uuid + "/"
+        print( redirect_url )
+
+        if DEV:
+            return
+
+        self.redirect(redirect_url)
 
 
 class HistoryExport(GalaxyHandler):
@@ -329,7 +287,7 @@ class HistoryExport(GalaxyHandler):
 
         if len(export):
             export = export[0]
-            export = encrypt_ids(export)
+            export = utils.encrypt_ids(export)
             return self.send_response(data=export)
         else:
             return self.send_response_404()
@@ -357,7 +315,7 @@ class HistoryExportsList(GalaxyHandler):
         else:
             exports = db.get_exports(state=filter['state'])
 
-        exports = list_encrypt_ids(exports)
+        exports = utils.list_encrypt_ids(exports)
         return self.send_response(data=exports)
 
 
@@ -554,9 +512,15 @@ class Export (GalaxyHandler):
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
-        state = instances[ instance_id]['api'].get_state(state_id)
+        if no_proxy:
+            state = states.get( state_id)
+        else:
+            state = instances[ instance_id]['api'].get_state(state_id)
+
         if state is None:
             self.send_response_404()
+
+        logger.debug( f"State info for export: {state}")
 
         try:
             instance_name = instances[instance_id]['name']
@@ -566,11 +530,15 @@ class Export (GalaxyHandler):
             #            self.send_response_204()
             self.redirect(instances[instance_id]['url'])
         except Exception as e:
-            logger.error(e)
+            logger.error(f"Error during export registation: {e}")
+            logger.debug( f"State info for export: {state}")
+            logger.debug( f"nels_id: {nels_id}")
+            logger.debug( f"location: {location}")
+
             self.send_response_400()
 
 
-class ExportUsegalaxy(GalaxyHandler):
+class Export_not_used(GalaxyHandler):
 
     def endpoint(self):
         return ("/export/")
@@ -585,26 +553,13 @@ class ExportUsegalaxy(GalaxyHandler):
         return user['email'], current_history_id
 
 
-    def get(self, instance: str, state: str):
-        logger.debug("post export")
-
-        #        data = requests.get_state( instance, state )
-
-        redirect_url = f"{nels_url}/welcome.xhtml"
-        user = self.get_user()
-        print( user )
-        data = {'user': user['email'], 'history':user['current_history_id']}
-        uuid = set_state( data )
-        redirect_url += f"?appCallbackUrl={master_url}/export/" + instance + "/" + uuid + "/"
-
-        self.redirect(nels_storage_url)
 
     def get(self, export_id):
 
         logger.debug("get tracking details")
         self.check_token()
         export_id = utils.decrypt_value(export_id)
-        export = encrypt_ids(db.get_export_tracking(export_id))
+        export = utils.encrypt_ids(db.get_export_tracking(export_id))
         self.send_response(data=export)
 
     def patch(self, tracking_id):
@@ -650,7 +605,7 @@ class ExportsList(Export):
         if user is not None and user != 'all':
             filter['user_email'] = user
 
-        exports = encrypt_ids(db.get_export_trackings(**filter))
+        exports = utils.encrypt_ids(db.get_export_trackings(**filter))
         self.send_response(data=exports)
 
 
@@ -675,7 +630,6 @@ def main():
         logger.init(name='nels-galaxy-api')
 
     logger.set_log_level(args.verbose)
-
     logger.info('startup')
 
     config = init(args.config_file)
@@ -683,16 +637,17 @@ def main():
     # Base functionality
     urls = [('/', RootHandler),
             (r'/info/?$', Info),
-            (r'/state/(\w+)?$', State),
+            (r'/state/(\w+)/?$', State),
+
+            # for the cli...
             (r'/users/?$', Users),
             (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories),
-            (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports),
-            # all, brief is default
+            (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy),
 
-            (r'/history/export/do/?$', HistoryExportDo),  # possible to search by history_id
+            (r'/history/export/request/?$', HistoryExportRequest),  # Register export request
             (r'/history/export/(\w+)?$', HistoryExport),  # export_id, last one pr history is default
             (r'/history/export/?$', HistoryExport),  # possible to search by history_id
             (r'/history/exports/(all)/?$', HistoryExportsList),  # for the local instance, all, brief is default
@@ -710,23 +665,30 @@ def main():
 
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
-        urls += [(r"/export/(\w)/(\w+)/?$", Export),  # instance-id, user, history
+        logger.debug( "setting the master endpoints")
+        urls += [(r"/export/(\w+)/(\w+)/?$", Export),  # instance-id, state-id
                  #                 (r"/export/({domain_match})/({email_match})/(\w+)/?$".format(domain_match=string_utils.domain_match,
                  #                                                                         email_match=string_utils.email_match), Export), #instance, user, history
-                 (r'/export/(\w+)/?$', ExportUsegalaxy),  # get or patch an export request
-                 (r'/export/?$', ExportUsegalaxy),  # pulls info from usegalaxy.no, implied
+                 (r'/export/(\w+)/?$', Export),  # get or patch an export request
+#                 (r'/export/?$', MasterExport),  # pulls info from usegalaxy.no, implied
 
-                 (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList),
+                 (r"/exports/(\w)/(\w+)/?$", ExportsList),  # instance, state
+
+#                 (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList),
                  # user_email
-                 (r"/exports/({email_match})/({domain_match})/?$".format(email_match=string_utils.email_match,
-                                                                         domain_match=string_utils.domain_match),
-                  ExportsList),  # user_email, instance. If user_email == all, export all entries for instance
+#                 (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),  # user_email, instance. If user_email == all, export all entries for instance
 
-                 (r"/exports/(all)/({domain_match})/?$".format(domain_match=string_utils.domain_match), ExportsList),
+#                 (r"/exports/(all)/({domain_match})/?$".format(domain_match=string_utils.domain_match), ExportsList),
                  # user_email, instance. If user_email == all, export all entries for instance
-                 (r'/exports/?$', ExportsList),  # All entries in the table
-                 (r'/proxy/?$', ProxyTest),  # can one connect with the proxy credentials
+
+                 (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key)
+                 # For testing the setup
+                 (r'/proxy/?$', ProxyTest),  # for validating connection using the proxy credentials
                  ]
+
+    if DEV:
+        sid = states.set({'id':1234, 'name': 'tyt'})
+        logger.info( f"TEST STATE ID: {sid}")
 
     logger.info(f"Running on port: {config.get('port', 8008)}")
     tornado.run_app(urls, port=config.get('port', 8008))
