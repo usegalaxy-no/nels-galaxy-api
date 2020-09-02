@@ -58,6 +58,9 @@ class ApiRequests( object ):
     def get_info(self) -> {}:
         return self._request_get(f"{self._base_url}/info/")
 
+    def get_state(self, state_id) -> {}:
+        return self._request_get(f"{self._base_url}/state/{state_id}/")
+
     def get_users(self) -> []:
         return self._request_get(f"{self._base_url}/users")
 
@@ -78,6 +81,10 @@ class ApiRequests( object ):
             return self._request_get(f"{self._base_url}/history/export/?history_id={history_id}")
         else:
             raise RuntimeError('provide either export_id or history_id.')
+
+    def history_export_request(self) -> {}:
+        return self._request_get(f"{self._base_url}/history/export/request/")
+
 
     def decrypt(self, export_id:str):
         return self._request_get(f"{self._base_url}/decrypt/{export_id}")
