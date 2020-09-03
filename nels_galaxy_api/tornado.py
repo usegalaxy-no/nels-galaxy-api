@@ -268,7 +268,7 @@ class BaseHandler( RequestHandler ):
         if auth_header:
             header_token = auth_header[7:]
 
-        logger.debug( f"Header Token: {header_token}")
+#        logger.debug( f"Header Token: {header_token}")
 
         valid_token = False
         if tokens is not None and header_token in tokens:
