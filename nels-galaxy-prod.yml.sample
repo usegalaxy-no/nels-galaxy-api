@@ -4,3 +4,4 @@ key: <GET-ACCESS-KEY-FROM-KIM>
 proxy_url: http://usegalaxy.no/nga/
 proxy_key: <GET-PROXY-KEY-FROM-KIM>
 port: 8008
+nels_url: "https://nels.bioinfo.no"
