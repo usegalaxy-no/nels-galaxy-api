@@ -6,8 +6,6 @@ title: Export History to NeLS
 
 function: >
   action="export";
-
   galaxy_url=window.location.protocol+"//"+window.location.host + Galaxy.root +"nga/history/export/request/";
-
   console.log(galaxy_url);
   window.location.href = galaxy_url

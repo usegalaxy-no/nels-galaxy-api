@@ -69,14 +69,14 @@ Edit the config-file nels-galaxy.yml.
 
 The following needs to filled in:
 1. path to the galaxy config file
-2. hostname of the instance, eg test-fe2.cbu.uib.no   
+2. id of the instance, provided by one of the usegalaxy admins
 3. access-key: provided by one of the usegalaxy admins
 4. proxy-key: provided by one of the usegalaxy admins
 
 **Notes**:
 1. The galaxy files needs to have the database connector and file-path defined, and should include the full filepath, 
 not only relative ones. 
-2. If the localhost:8008 port is already being used change it (```netstat -t | egrep 8008```)
+2. If the localhost:8008 port is already being used change it (```netstat -a | egrep 8008```)
 
 ### Running the server (testing stage)
 
@@ -113,6 +113,8 @@ Proxy connection
 Proxy endpoing: test.usegalaxy.no running version 1.3.0
 ===============================
 
+(etc)
+
 Setup looks good
 ```
 
@@ -126,10 +128,10 @@ using the https protocol instead of http
 
 #### nginx
 
-Add the following entry in your nginx to be able to accessing it at http://\<SITE>/nels-galaxy/
+Add the following entry in your nginx to be able to accessing it at http://\<host.no>/nga/
 
 ```
-    location /nels-galaxy/ {
+    location /nga/ {
         proxy_pass  http://127.0.0.1:8008/;
     }
 
@@ -143,7 +145,7 @@ Add the following entry in your appache2/httpd be able to accessing it at http:/
 
 
 ```
-        <Location /nels-galaxy>
+        <Location /nga>
 
           Order allow,deny
           Allow from all
@@ -158,7 +160,7 @@ Add the following entry in your appache2/httpd be able to accessing it at http:/
 
 **Test the connection ...**
 
-In a different terminal, and in the same directory
+Again in a different terminal, and in the same directory
 
 ```
 $ source venv/bin/activate
@@ -196,11 +198,11 @@ By default the plugin uses the test server, remove the entry to switch to the pr
 
 
 
-1. Ensure that the file is readable by the user running galaxy ```namei -mo /<GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export_history/config.yml```
+1. Ensure that the directories and the config.yml file is readable by the user running galaxy ```namei -mo /<GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export_history/config.yml```
 
 
 
- It looks like the webhooks needs to be with in the galaxy server dir. It will not work running them from a external config 
+2. It looks like the webhooks needs to be with in the galaxy server dir. It will not work running them from a external config 
 directory as done with the galaxy project ansible-playbook (and thus usegalaxy.no). 
 
 In the galaxy.yml enable webhooks (if not already done)  
@@ -208,7 +210,7 @@ In the galaxy.yml enable webhooks (if not already done)
  webhooks_dir: config/plugins/webhooks/nels/
 
 
-### Running the server (productino)
+### Running the server (production)
 
 
 ```
