@@ -5,6 +5,7 @@ import sys
 import os
 import time
 import pprint as pp
+import json
 
 from tornado import iostream
 
@@ -139,7 +140,7 @@ def init(config_file: dict) -> None:
 
         for iid in tmp_instances:
 
-            if not tmp_instances[iid]['active']:
+            if 'active' not in tmp_instances[iid] or not tmp_instances[iid]['active']:
                 continue
 
             instances[iid] = tmp_instances[iid]
