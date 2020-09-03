@@ -113,8 +113,8 @@ def init(config_file: dict) -> None:
 
     global master_url, nels_url, instance_id
     master_url = config.get('master_url', None)
-    instance_id = config.get('id')
-    nels_url = config.get('nels_url')
+    instance_id = config['id']
+    nels_url = config['nels_url']
 
     if 'tos_server' in config and config['tos_server']:
         logger.info("Running with the tos-server")
@@ -134,14 +134,14 @@ def init(config_file: dict) -> None:
 
         no_proxy = True
 
-        tmp_instances = config.get('instances')
+        tmp_instances = config['instances']
 
         for iid in tmp_instances:
             instances[iid] = tmp_instances[iid]
             instance = tmp_instances[iid]
 
             instances[instance['name']] = instance
-            instances[instance['name']]['api'] = api_requests.ApiRequests(f"{instance['url']}/nga", instance['nga_key'])
+            instances[instance['name']]['api'] = api_requests.ApiRequests(f"{instance['url']}", instance['nga_key'])
             if instance['proxy_key'] in proxy_keys.keys():
                 logger.warn(f"Proxy key for {instance['name']} is also used for {proxy_keys[instance['proxy_key']]}")
             proxy_keys[instance['proxy_key']] = instance['name']
@@ -173,7 +173,7 @@ class Info(tornado.BaseHandler):
         df = os.statvfs(galaxy_file_path)
         perc_free = df.f_bavail / df.f_blocks * 100.0
         free_size = df.f_bavail * df.f_bsize / 1e9
-        return self.send_response(data={"name": instance_id, "perc_free": perc_free, 'free_gb': free_size})
+        return self.send_response(data={"id": instance_id, "perc_free": perc_free, 'free_gb': free_size})
 
 
 class State(tornado.BaseHandler):
@@ -256,9 +256,9 @@ class HistoryExportRequest(GalaxyHandler):
 
         redirect_url = f"{nels_url}/welcome.xhtml"
         redirect_url += f"?appCallbackUrl={master_url}/export/" + instance_id + "/" + uuid + "/"
-        print( redirect_url )
 
         if DEV:
+            print( redirect_url )
             return
 
         self.redirect(redirect_url)
@@ -304,6 +304,9 @@ class HistoryExportsList(GalaxyHandler):
         filter = self.arguments()
 
         self.valid_arguments(filter, ['state', ])
+
+        if 'state' not in filter:
+            filter['state'] = ''
 
         if 'state' in filter and filter['state'] not in ['new', 'upload', 'waiting', '',
                                                          'queued', 'running', 'ok', 'error',
@@ -397,19 +400,21 @@ class ExportsListProxy(GalaxyHandler):
 
     def get(self):
         logger.debug("proxy export list")
-        # Will not check token here as relyin on the session id instead
+        # Will not check token here as relying on the session id instead
         #        self.check_token()
         user = self.get_user()
 
-        # cannot proxy to it-self as single threaded by default, so if proxy-tokens are set dont use the proxy
-        if proxy_keys is not None:
-            logger.debug('accesing the data using the proxy')
-            tracking = db.get_export_trackings(user_email=user['email'], instance=instance_id)
+        # cannot proxy to it-self, read directly from the database
+        if no_proxy:
+            logger.debug('accessing the data directly')
+#            print( user )
+            trackings = db.get_export_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
         else:
-            tracking = api_requests.get_user_instance_exports(master_url, user['email'], instance_id)
+            logger.debug('accessing the data using the proxy')
+            trackings, _ = api_requests.get_user_instance_exports(master_url, user['email'], instance_id)
 
         results = []
-        for tracking in tracking:
+        for tracking in trackings:
             history_id = utils.decrypt_value(tracking['history_id'])
             history = db.get_history(history_id)[0]
 
@@ -479,19 +484,25 @@ class Export (GalaxyHandler):
     def endpoint(self):
         return ("/export/")
 
-    def get(self, instance: str, state: str):
-        logger.debug("post export")
+    def get(self, tracking_id):
 
-        #        data = requests.get_state( instance, state )
+        logger.debug("get tracking details")
+        self.check_token()
+        tracking_id = utils.decrypt_value(tracking_id)
+        tracking = utils.encrypt_ids(db.get_export_tracking(tracking_id))
+        self.send_response(data=tracking)
 
-        redirect_url = f"{nels_url}/welcome.xhtml"
-        user = self.get_user()
-        print( user )
-        data = {'user': user['email'], 'history':user['current_history_id']}
-        uuid = set_state( data )
-        redirect_url += f"?appCallbackUrl={master_url}/export/" + instance + "/" + uuid + "/"
+    def patch(self, tracking_id):
+        logger.debug("patch tracking details")
+        self.check_token()
+        data = self.post_values()
+        self.valid_arguments(data, ['state', 'export_id', 'tmpfile'])
+        # need to decrypt the id otherwise things blow up!
+        tracking_id = utils.decrypt_value(tracking_id)
 
-        self.redirect(nels_storage_url)
+        db.update_export_tracking(tracking_id, data)
+        return self.send_response_204()
+
 
     def _register_export(self, instance: str, user: str, history_id: str, nels_id: int, destination: str):
         logger.debug("registering export")
@@ -506,16 +517,20 @@ class Export (GalaxyHandler):
         #        if not db.history_export_exists(tracking):
         db.add_export_tracking(tracking)
 
-    def post(self, instance_id, state_id):
+    def post(self, instance, state_id):
 
         #        post_values = self.post_values()
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
-        if no_proxy:
+        print( f"{instance} != {instance_id}:")
+
+        if instance == instance_id:
+            logger.debug( "No proxy access to state")
             state = states.get( state_id)
         else:
-            state = instances[ instance_id]['api'].get_state(state_id)
+            logger.debug( "Proxy access to state")
+            state = instances[ instance]['api'].get_state(state_id)
 
         if state is None:
             self.send_response_404()
@@ -523,12 +538,11 @@ class Export (GalaxyHandler):
         logger.debug( f"State info for export: {state}")
 
         try:
-            instance_name = instances[instance_id]['name']
+            instance_name = instances[instance]['name']
             user = state[ 'user' ]
             history_id = state[ 'history_id' ]
             self._register_export(instance_name, user, history_id, nels_id, location)
-            #            self.send_response_204()
-            self.redirect(instances[instance_id]['url'])
+            self.redirect(instances[instance]['url'])
         except Exception as e:
             logger.error(f"Error during export registation: {e}")
             logger.debug( f"State info for export: {state}")
@@ -543,6 +557,7 @@ class Export_not_used(GalaxyHandler):
     def endpoint(self):
         return ("/export/")
 
+
     def _usegalaxy_export(self):
         user = self.get_user()
 
@@ -554,24 +569,6 @@ class Export_not_used(GalaxyHandler):
 
 
 
-    def get(self, export_id):
-
-        logger.debug("get tracking details")
-        self.check_token()
-        export_id = utils.decrypt_value(export_id)
-        export = utils.encrypt_ids(db.get_export_tracking(export_id))
-        self.send_response(data=export)
-
-    def patch(self, tracking_id):
-        logger.debug("patch tracking details")
-        self.check_token()
-        data = self.post_values()
-        self.valid_arguments(data, ['state', 'export_id', 'tmpfile'])
-        # need to decrypt the id otherwise things blow up!
-        tracking_id = utils.decrypt_value(tracking_id)
-
-        db.update_export_tracking(tracking_id, data)
-        return self.send_response_204()
 
 
 class ExportsList(Export):
@@ -579,7 +576,7 @@ class ExportsList(Export):
     def endpoint(self):
         return ("/export/")
 
-    def get(self, user: str = None, instance: str = None):
+    def get(self, user: str = None, instance_id: str = None):
         logger.debug("get Export list")
         logger.debug(proxy_keys)
         self.check_token(proxy_keys)
@@ -599,11 +596,13 @@ class ExportsList(Export):
                                                          'nels-transfer-ok', 'nels-transfer-error']:
             return self.send_response_400(data="Invalid value for state {}".format(filter['state']))
 
-        if instance is not None:
-            filter['instance'] = instance
+        if instance_id is not None:
+            filter['instance'] = instances[instance_id]['name']
 
         if user is not None and user != 'all':
             filter['user_email'] = user
+
+        pp.pprint( filter )
 
         exports = utils.encrypt_ids(db.get_export_trackings(**filter))
         self.send_response(data=exports)
@@ -635,24 +634,25 @@ def main():
     config = init(args.config_file)
 
     # Base functionality
-    urls = [('/', RootHandler),
-            (r'/info/?$', Info),
-            (r'/state/(\w+)/?$', State),
+    urls = [('/', RootHandler), #Done
+            (r'/info/?$', Info), #Done
+            (r'/state/(\w+)/?$', State), #Done
 
             # for the cli...
-            (r'/users/?$', Users),
-            (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories),
-            (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default
+            (r'/users/?$', Users), #Done
+            (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
+            (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
-            (r"/user/exports/?$", ExportsListProxy),
+            (r"/user/exports/?$", ExportsListProxy), # done
+            (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
 
-            (r'/history/export/request/?$', HistoryExportRequest),  # Register export request
-            (r'/history/export/(\w+)?$', HistoryExport),  # export_id, last one pr history is default
-            (r'/history/export/?$', HistoryExport),  # possible to search by history_id
-            (r'/history/exports/(all)/?$', HistoryExportsList),  # for the local instance, all, brief is default
-            (r'/history/exports/?$', HistoryExportsList),  # for the local instance, all, brief is default
-            (r'/history/download/(\w+)/?$', HistoryDownload),  # fetching exported histories
+            (r'/history/export/(\w+)?$', HistoryExport),  # export_id, last one pr history is default # skip
+            (r'/history/export/?$', HistoryExport),  # possible to search by history_id               # ship
+
+            (r'/history/exports/(all)/?$', HistoryExportsList),  # for the local instance, all, brief is default # done
+            (r'/history/exports/?$', HistoryExportsList),  # for the local instance, all, brief is default       # done
+            (r'/history/download/(\w+)/?$', HistoryDownload),  # fetching exported histories                     # skip
 
             # Might drop these two
 #            (r'/decrypt/(\w+)/?$', Decrypt),
@@ -666,24 +666,18 @@ def main():
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
         logger.debug( "setting the master endpoints")
-        urls += [(r"/export/(\w+)/(\w+)/?$", Export),  # instance-id, state-id
-                 #                 (r"/export/({domain_match})/({email_match})/(\w+)/?$".format(domain_match=string_utils.domain_match,
-                 #                                                                         email_match=string_utils.email_match), Export), #instance, user, history
-                 (r'/export/(\w+)/?$', Export),  # get or patch an export request
-#                 (r'/export/?$', MasterExport),  # pulls info from usegalaxy.no, implied
+        urls += [(r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
+                 (r'/export/(\w+)/?$', Export),  # get or patch an export request # skip
 
-                 (r"/exports/(\w)/(\w+)/?$", ExportsList),  # instance, state
-
-#                 (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList),
-                 # user_email
-#                 (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),  # user_email, instance. If user_email == all, export all entries for instance
-
-#                 (r"/exports/(all)/({domain_match})/?$".format(domain_match=string_utils.domain_match), ExportsList),
+                 (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList), # user_email # done
+                 (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),  # user_email, instance. If user_email == all, export all entries for instance # done
+                 (r"/exports/(all)/(\w+)/?$", ExportsList), # done
                  # user_email, instance. If user_email == all, export all entries for instance
 
-                 (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key)
+                 (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key?) # done
                  # For testing the setup
-                 (r'/proxy/?$', ProxyTest),  # for validating connection using the proxy credentials
+
+                 (r'/proxy/?$', ProxyTest),  # an  endpoint for testing the proxy connection #done
                  ]
 
     if DEV:

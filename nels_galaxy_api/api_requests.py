@@ -13,6 +13,7 @@ class ApiRequests( object ):
         self._token = new_token
 
     def _request_get(self, url:str, as_json:bool=True, data:{}=None):
+
         return self._generic_request(url, as_json, call='GET', data=data, send_as_json=False)
 
     def _request_post(self, url:str, data:{}):
@@ -64,6 +65,10 @@ class ApiRequests( object ):
     def get_users(self) -> []:
         return self._request_get(f"{self._base_url}/users")
 
+    def get_session_exports(self) -> []:
+        return self._request_get(f"{self._base_url}/user/exports/")
+
+
     def get_user_histories(self, user_id:str) -> []:
         return self._request_get(f"{self._base_url}/user/{user_id}/histories")
 
@@ -72,6 +77,9 @@ class ApiRequests( object ):
 
     def get_history_exports(self, filter:{}={}) -> []:
         return self._request_get(f"{self._base_url}/history/exports", data=filter)
+
+    def get_all_history_exports(self, filter:{}={}) -> []:
+        return self._request_get(f"{self._base_url}/history/exports/all/", data=filter)
 
     def get_history_export(self, export_id:str=None, history_id:str=None):
 
@@ -112,7 +120,7 @@ class ApiRequests( object ):
     def get_user_exports(self, user:str):
         return self._request_get(f"{self._base_url}/exports/{user}/")
 
-    def get_instance_exports(self, instance:str, filter):
+    def get_instance_exports(self, instance:str, filter=None):
         return self._request_get(f"{self._base_url}/exports/all/{instance}/", data=filter)
 
     def get_exports(self):
