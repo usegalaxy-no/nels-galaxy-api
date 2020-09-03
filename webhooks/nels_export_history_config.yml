@@ -6,37 +6,8 @@ title: Export History to NeLS
 
 function: >
   action="export";
-  console.log( Galaxy );
 
-  galaxy_instance = window.location.host;
-  history_id = Galaxy.currHistoryPanel.model.id;
-  user_email = Galaxy.user.attributes.email;
+  galaxy_url=window.location.protocol+"//"+window.location.host + Galaxy.root +"nga/history/export/request/";
 
-  console.log(galaxy_instance);
-  console.log(history_id);
-  console.log(user_email);
-
-
-  //prod
-
-  nels_storage_url  = "https://nels.bioinfo.no/welcome.xhtml?";
-  nels_storage_url += "appCallbackUrl=https://usegalaxy.no/nels-galaxy/export/"+galaxy_instance+"/"+user_email+"/"+history_id+"/";
-
-  //test
-
-  nels_storage_url  = "https://test-fe.cbu.uib.no/nels/welcome.xhtml?";
-  nels_storage_url += "appCallbackUrl=https://test.usegalaxy.no/nels-galaxy/export/"+galaxy_instance+"/"+user_email+"/"+history_id+"/";
-
-
-
-  console.log(nels_storage_url);
-  window.location.href = nels_storage_url;
-
-
-  //window.location.href = nels_storage_url;
-  //galaxy_url=window.location.protocol+"//"+window.location.host;
-  //galaxy_url+=Galaxy.root;
-  //console.log('galaxy history export');
-
-
-
+  console.log(galaxy_url);
+  window.location.href = galaxy_url
