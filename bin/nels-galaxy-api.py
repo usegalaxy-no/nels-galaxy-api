@@ -24,7 +24,7 @@ import nels_galaxy_api.states as states
 import nels_galaxy_api.api_requests as api_requests
 
 version = '0.0.0'
-DEV = True
+DEV = False
 
 db = nels_galaxy_db.DB()
 galaxy_file_path = None
@@ -531,7 +531,7 @@ class Export (GalaxyHandler):
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
-        print( f"{instance} != {instance_id}:")
+        
 
         if instance == instance_id:
             logger.debug( "No proxy access to state")
