@@ -3,6 +3,10 @@
 import argparse
 import pprint as pp
 
+import sys
+sys.path.append(".")
+
+
 import kbr.config_utils as config_utils
 import kbr.log_utils as logger
 
@@ -27,7 +31,7 @@ def main():
     logger.init(name='nels-galaxy-endpoints')
 
     local_api = api_requests.ApiRequests(base_url=f"http://localhost:{config['port']}", token=config['key'])
-    proxy_api = api_requests.ApiRequests(base_url=config['master_url'], token=config['proxy_key'])
+    proxy_api = api_requests.ApiRequests(base_url=config['master_url'].rstrip("/"), token=config['proxy_key'])
 
     instance_id = config['id']
 
