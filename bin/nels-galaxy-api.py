@@ -138,7 +138,7 @@ def init(config_file: dict) -> None:
 
         for iid in tmp_instances:
 
-            if not instances[iid]['active']:
+            if not tmp_instances[iid]['active']:
                 continue
 
             instances[iid] = tmp_instances[iid]
@@ -531,7 +531,7 @@ class Export (GalaxyHandler):
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
-        
+
 
         if instance == instance_id:
             logger.debug( "No proxy access to state")
