@@ -108,6 +108,7 @@ class DB(object):
         self._db.add('nels_export_tracking', values)
         tracking_id = self._db.get_id('nels_export_tracking', **values)
         self.add_export_tracking_log(tracking_id, state="Created")
+        return tracking_id
 
     def update_export_tracking(self, tracking_id: int, values: {}):
         values['update_time'] = datetime.datetime.now()
