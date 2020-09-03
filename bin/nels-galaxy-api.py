@@ -29,9 +29,9 @@ DEV = True
 db = nels_galaxy_db.DB()
 galaxy_file_path = None
 
+
 master_url = None
 instance_id = None
-
 nels_url = None
 
 # when running as the master version
@@ -112,9 +112,9 @@ def init(config_file: dict) -> None:
     api_requests.set_token(config.get('proxy_key', None))
 
     global master_url, nels_url, instance_id
-    master_url = config.get('master_url', None)
-    instance_id = config['id']
-    nels_url = config['nels_url']
+    master_url = config['master_url'].rstrip("/")
+    instance_id = config['id'].rstrip("/")
+    nels_url = config['nels_url'].rstrip("/")
 
     if 'tos_server' in config and config['tos_server']:
         logger.info("Running with the tos-server")
@@ -141,9 +141,10 @@ def init(config_file: dict) -> None:
             instance = tmp_instances[iid]
 
             instances[instance['name']] = instance
-            instances[instance['name']]['api'] = api_requests.ApiRequests(f"{instance['url']}", instance['nga_key'])
+            instances[instance['name']]['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'])
             if instance['proxy_key'] in proxy_keys.keys():
                 logger.warn(f"Proxy key for {instance['name']} is also used for {proxy_keys[instance['proxy_key']]}")
+
             proxy_keys[instance['proxy_key']] = instance['name']
 
     global version
@@ -411,6 +412,7 @@ class ExportsListProxy(GalaxyHandler):
             trackings = db.get_export_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
         else:
             logger.debug('accessing the data using the proxy')
+            #ERROR HERE, WRONG URL
             trackings, _ = api_requests.get_user_instance_exports(master_url, user['email'], instance_id)
 
         results = []
