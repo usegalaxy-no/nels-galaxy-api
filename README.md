@@ -189,7 +189,6 @@ mkdir -p <GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export/
 cp webhooks/nels_export_history_config.yml <GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export/config.yml
 ```
 
-By default the plugin uses the test server, remove the entry to switch to the production server instead.
 
 
 
