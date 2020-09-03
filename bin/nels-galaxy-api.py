@@ -137,6 +137,10 @@ def init(config_file: dict) -> None:
         tmp_instances = config['instances']
 
         for iid in tmp_instances:
+
+            if not instances[iid]['active']:
+                continue
+
             instances[iid] = tmp_instances[iid]
             instance = tmp_instances[iid]
 
@@ -404,6 +408,8 @@ class ExportsListProxy(GalaxyHandler):
         # Will not check token here as relying on the session id instead
         #        self.check_token()
         user = self.get_user()
+        if user is None:
+            self.send_response_404()
 
         # cannot proxy to it-self, read directly from the database
         if no_proxy:
