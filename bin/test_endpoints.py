@@ -18,6 +18,7 @@ def main():
     parser.add_argument('-s', '--state-id', required=False, help="state-id")
     parser.add_argument('-u', '--user', required=False, help="user to get info for")
     parser.add_argument('-m', '--master-api', required=False, default=False, action='store_true', help="test the master api")
+    parser.add_argument('-f', '--full', required=False, default=False, action='store_true', help="Full test of the api")
 
     args = parser.parse_args()
 
@@ -79,25 +80,26 @@ def main():
     print("===============================\n")
 
 
-    print('history exports (all)')
-    exports = local_api.get_all_history_exports( )
-    print( f"{len(exports)} history exports in the database (all versions )")
-    print("===============================\n")
+    if args.full:
+        print('history exports (all)')
+        exports = local_api.get_all_history_exports( )
+        print( f"{len(exports)} history exports in the database (all versions )")
+        print("===============================\n")
 
 
-    print('Request export')
-    local_api.history_export_request()
-    print("===============================\n")
+        print('Request export')
+        local_api.history_export_request()
+        print("===============================\n")
 
-    print('User session export trackings (locally)')
-    session_exports = local_api.get_session_exports()
-    print( f"There are {len(session_exports)} exports linked to the session " )
-    print("===============================\n")
+        print('User session export trackings (locally)')
+        session_exports = local_api.get_session_exports()
+        print( f"There are {len(session_exports)} exports linked to the session " )
+        print("===============================\n")
 
-    print('User session export trackings (proxy)')
-    exports = proxy_api.get_session_exports()
-    print( f" User has {len(exports)} exports registered" )
-    print("===============================\n")
+        print('User session export trackings (proxy)')
+        exports = proxy_api.get_session_exports()
+        print( f" User has {len(exports)} exports registered" )
+        print("===============================\n")
 
 
 
