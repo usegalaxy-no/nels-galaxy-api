@@ -16,6 +16,7 @@ import kbr.log_utils as logger
 import kbr.config_utils as config_utils
 import kbr.string_utils as string_utils
 import kbr.version_utils as version_utils
+import kbr.mq_utils as mq_utils
 
 import nels_galaxy_api.tornado as tornado
 import nels_galaxy_api.db as nels_galaxy_db
@@ -41,7 +42,7 @@ instances = None
 tos_grace_period = None
 # galaxy_config = None
 no_proxy = False  # The NGA-master does not need to use the proxy connections.
-
+mq = None
 
 class GalaxyHandler(tornado.BaseHandler):
     def get_tos(self):
@@ -151,10 +152,26 @@ def init(config_file: dict) -> None:
 
             proxy_keys[instance['proxy_key']] = instance['name']
 
-    global version
+
+
+    global version, mq
+    mq = mq_utils.Mq()
+    mq.connect(uri=config['mq_uri'])
     version = version_utils.as_string()
 
     return config
+
+
+def submit_mq_job(tracker_id:int, state:str = None ) -> None:
+
+    payload = {'tracker_id': tracker_id,
+               'state': state}
+
+    if mq is None:
+        logger.error('MQ not configured, cannot send message')
+        return
+
+    mq.publish(body=json.dumps(payload))
 
 
 class RootHandler(tornado.BaseHandler):
@@ -523,15 +540,14 @@ class Export (GalaxyHandler):
 
         # Need this function next
         #        if not db.history_export_exists(tracking):
-        db.add_export_tracking(tracking)
+        tracking_id = db.add_export_tracking(tracking)
+        return tracking_id
 
     def post(self, instance, state_id):
 
         #        post_values = self.post_values()
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
-
-
 
         if instance == instance_id:
             logger.debug( "No proxy access to state")
@@ -549,8 +565,12 @@ class Export (GalaxyHandler):
             instance_name = instances[instance]['name']
             user = state[ 'user' ]
             history_id = state[ 'history_id' ]
-            self._register_export(instance_name, user, history_id, nels_id, location)
+            tracking_id = self._register_export(instance_name, user, history_id, nels_id, location)
+
+            submit_mq_job(tracking_id,  'pre-queueing')
+
             self.redirect(instances[instance]['url'])
+
         except Exception as e:
             logger.error(f"Error during export registation: {e}")
             logger.debug( f"State info for export: {state}")
