@@ -15,6 +15,7 @@ import threading
 import re
 import tempfile
 import time
+import requests
 
 from bioblend.galaxy import GalaxyInstance
 
@@ -201,7 +202,7 @@ def run_push_export( tracker ):
 
         history = nels_galaxy_api.get_history_export(export_id=tracker['export_id'])
         logger.debug( f"history: {history}")
-        create_time = str(tracker['create_time']).replace("-", "").replace(":", "")
+        create_time = str(tracker['create_time']).replace("-", "").replace(":", "").replace(" ", "_")
         logger.debug( f'Create time {create_time}')
         create_time = re.sub(r'\.\d+', '', create_time)
         logger.debug( f'Create time {create_time}')
