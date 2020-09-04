@@ -233,7 +233,7 @@ def run_push_export( tracker ):
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
     except Exception as e:
         import traceback
-        traceback.print_tb(err.__traceback__)
+        traceback.print_tb(e.__traceback__)
 
         nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
         logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
