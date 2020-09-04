@@ -52,7 +52,7 @@ def init( config_file) -> {}:
     nels_url = config['nels_url'].rstrip("/")
     version = version_utils.as_string()
     instances = {}
-    nels_galaxy_api = api_requests.ApiRequests(config['master_url'], config['key'])
+    nels_galaxy_api = api_requests.ApiRequests(master_url, config['key'])
 
     galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
     db.connect(galaxy_config['galaxy']['database_connection'])
