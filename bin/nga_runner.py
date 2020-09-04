@@ -198,7 +198,8 @@ def run_push_export( tracker ):
 
     try:
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
-        history = helper_api.get_history_export(export_id=tracker['export_id'])
+
+        history = nels_galaxy_api.get_history_export(export_id=tracker['export_id'])
         create_time = tracker['create_time'].replace("-", "").replace(":", "")
         create_time = re.sub(r'\.\d+', '', create_time)
         history['name'] = history['name'].replace(" ", "_")
