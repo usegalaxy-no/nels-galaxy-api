@@ -64,7 +64,7 @@ def init( config_file) -> {}:
     global nels_storage_client_key, nels_storage_client_secret, nels_storage_url
     nels_storage_client_key = config['nels_storage_client_key']
     nels_storage_client_secret = config['nels_storage_client_secret']
-    nels_storage_url = config['nels_storage_url']
+    nels_storage_url = config['nels_storage_url'].rstrip("/")
 
 
 
@@ -223,6 +223,10 @@ def run_push_export( tracker ):
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"ssh info {ssh_info}")
+
+        logger.debug( f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}")
+                              )
+
 
         cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} \"{ssh_info['username']}@{ssh_info['hostname']}:{dest_file}\""
         logger.debug("CMD:", cmd)
