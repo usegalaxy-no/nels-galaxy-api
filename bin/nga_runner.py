@@ -202,7 +202,9 @@ def run_push_export( tracker ):
         history = nels_galaxy_api.get_history_export(export_id=tracker['export_id'])
         logger.debug( f"history: {history}")
         create_time = tracker['create_time'].replace("-", "").replace(":", "")
+        logger.debug( f'Create time {create_time}')
         create_time = re.sub(r'\.\d+', '', create_time)
+        logger.debug( f'Create time {create_time}')
         history['name'] = history['name'].replace(" ", "_")
         dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
         logger.debug(f"dest file: {dest_file}")
