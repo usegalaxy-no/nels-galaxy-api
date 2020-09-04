@@ -13,6 +13,7 @@ import argparse
 import functools
 import threading
 import re
+import tempfile
 import time
 
 from bioblend.galaxy import GalaxyInstance
@@ -325,7 +326,7 @@ def main():
         logger.init(name='nga_runner')
 
     logger.set_log_level(args.verbose)
-    logger.info('startup')
+    logger.info(f'startup {version}')
 
 
     config = config_utils.readin_config_file( args.config )
