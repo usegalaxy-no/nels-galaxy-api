@@ -110,19 +110,19 @@ def run_cmd(cmd:str, name:str=None, verbose:bool=False):
     return exec_info.p_status
 
 
-def run_history_export( tracking ):
+def run_history_export( tracker ):
 
     logger.debug('run_history_export')
-    logger.debug(f'..... {tracking}')
+    logger.debug(f'..... {tracker}')
 
-    instance = tracking['instance']
+    instance = tracker['instance']
     print( instance )
     info = instances[instance]['api'].get_info()
     print( info )
     if info['free_gb'] < 30:
         # Not enough free disk space to do this, alert sysadmin
         logger.error("Not enough free space for export, email admin.")
-        nels_galaxy_api.update_export(tracking['id'], {'state': 'disk-space-error'})
+        nels_galaxy_api.update_export(tracker['id'], {'state': 'disk-space-error'})
         return
 
 
@@ -135,40 +135,40 @@ def run_history_export( tracking ):
 
     while True:
         try:
-            export_id = galaxy_instance.histories.export_history(tracking['history_id'], maxwait=1, gzip=True)
+            export_id = galaxy_instance.histories.export_history(tracker['history_id'], maxwait=1, gzip=True)
         except Exception as e:
             logger.error(f"bioblend trigger export {e}")
             return
 
 
         if export_id is None or export_id == '':
-            history = nels_galaxy_api.get_history_export(history_id=tracking['history_id'])
+            history = nels_galaxy_api.get_history_export(history_id=tracker['history_id'])
 
             if history is not None and history != '':
-                nels_galaxy_api.update_export(tracking['id'], {"export_id": history['export_id'], 'state': 'new'})
+                nels_galaxy_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
                 logger.error(f"No history id associated with {export_id}")
         else:
             export = nels_galaxy_api.get_history_export(export_id=export_id)
-            nels_galaxy_api.update_export(tracking['id'], {"export_id": export_id, 'state': export['state']})
+            nels_galaxy_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
-                submit_mq_job(tracking['id'], state=export['state'] )
+                submit_mq_job(tracker['id'], state=export['state'] )
                 return
 
             break
 
         time.sleep( sleep_time )
 
-def run_fetch_export(tracking):
+def run_fetch_export(tracker):
 
     logger.debug('run_fetch_export')
 
-    export_id = tracking['export_id']
-    tracking_id = tracking['id']
+    export_id = tracker['export_id']
+    tracker_id = tracker['id']
 
     outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
-    nels_galaxy_api.update_export(tracking_id, {'tmpfile': outfile, 'state':'fetch-running'})
+    nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-running'})
 
     #    token   = 'usegalaxy_secret'
 
@@ -176,40 +176,40 @@ def run_fetch_export(tracking):
         cmd = f"curl -H 'Authorization: bearer {token}' -Lo {outfile} {helper_url}/history/download/{export_id}/"
         logger.debug(f'fetch-cmd: {cmds}')
         run_cmd(cmd)
-        nels_galaxy_api.update_export(tracking_id, {'tmpfile': outfile, 'state':'fetch-ok'})
-        submit_mq_job(tracking_id, state=export['fetch-ok'] )
+        nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-ok'})
+        submit_mq_job(tracker_id, state=export['fetch-ok'] )
 
     except Exception as e:
-        nels_galaxy_api.update_export(tracking_id, {'tmpfile': outfile, 'state':'fetch-error'})
-        logger.debug(f" tracking['id'] fetch error: {e}")
+        nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-error'})
+        logger.debug(f" tracker['id'] fetch error: {e}")
 
     return
 
 
-def run_push_export( tracking ):
+def run_push_export( tracker ):
 
     logger.debug('run_push_export')
-    tracking_id = tracking['id']
+    tracker_id = tracker['id']
 
     try:
-        nels_galaxy_api.update_export(tracking_id, {'state': 'nels-transfer-running'})
-        history = helper_api.get_history_export(export_id=tracking['export_id'])
-        create_time = tracking['create_time'].replace("-", "").replace(":", "")
+        nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
+        history = helper_api.get_history_export(export_id=tracker['export_id'])
+        create_time = tracker['create_time'].replace("-", "").replace(":", "")
         create_time = re.sub(r'\.\d+', '', create_time)
         history['name'] = history['name'].replace(" ", "_")
-        dest_file = f"{tracking['destination']}/{history['name']}-{create_time}.tgz"
+        dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
 
 
-        ssh_info = get_ssh_credential(tracking['nels_id'])
+        ssh_info = get_ssh_credential(tracker['nels_id'])
 
 
-        cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracking['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
+        cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
         logger.debug("CMD:", cmd)
         run_cmd(cmd)
-        nels_galaxy_api.update_export(tracking_id, {'state': 'nels-transfer-ok'})
+        nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
     except Exception as e:
-        nels_galaxy_api.update_export(tracking_id, {'state':'nels-transfer-error'})
-        logger.debug(f" tracking['id'] transfer to NeLS error: {e}")
+        nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
+        logger.debug(f" tracker['id'] transfer to NeLS error: {e}")
 
 
 
@@ -271,29 +271,29 @@ def do_work(conn, ch, delivery_tag, body):
     if "tracker_id" not in payload or 'state' not in payload:
         raise Exception(f"Invalid message {payload}")
 
-    tracking_id = payload['tracker_id']
-    tracking = db.get_export_tracking( tracking_id )
+    tracker_id = payload['tracker_id']
+    tracker = db.get_export_tracker( tracker_id )
 
-    if payload['state'] != tracking['state']:
-        logger.warn(f"state in db {tracking['state']} differs from payload {payload['state']}")
+    if payload['state'] != tracker['state']:
+        logger.warn(f"state in db {tracker['state']} differs from payload {payload['state']}")
 
 
     try:
 
-        state = tracking['state']
+        state = tracker['state']
 
         logger.info(f"State: {state}")
 
         if state == 'pre-queueing':
-            run_history_export( tracking )
+            run_history_export( tracker )
 
         elif state == 'ok':
-            run_fetch_export( tracking )
+            run_fetch_export( tracker )
 
         elif state == 'fetch-ok':
-            run_push_export( tracking )
+            run_push_export( tracker )
         else:
-            raise Exception(f"Unknown state {state} for tracking_id: {tracking_id}")
+            raise Exception(f"Unknown state {state} for tracker_id: {tracker_id}")
 
     except Exception as e:
         logger.error(f"Error in state selector: {e}")
