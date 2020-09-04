@@ -321,7 +321,8 @@ def main():
 
     args = parser.parse_args()
 
-    config = config_utils.readin_config_file( args.config )
+#    config = config_utils.readin_config_file( args.config )
+    config = init( args.config )
 
 
     if args.logfile:
@@ -333,12 +334,9 @@ def main():
     logger.info(f'startup {version}')
 
 
-
-
     api_requests.set_token( config['key'])
 
 
-    config = init( args.config )
 
     global mq
     # prefetch  translates to thread count!
