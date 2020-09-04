@@ -147,7 +147,7 @@ def run_history_export( tracker ):
         logger.error(f"Trigger export through bioblend: {e}")
         return
 
-    logger.debug( galaxy_instance )
+#    logger.debug( galaxy_instance )
 
     while True:
         try:
