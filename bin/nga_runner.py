@@ -238,7 +238,7 @@ def get_ssh_credential(nels_id: int):
     #    api_url = 'https://nels.bioinfo.no/'
     #    api_url = 'https://test-fe.cbu.uib.no/nels-'
 
-    api_url = nels_url + "storage2/users/" + nels_id
+    api_url = nels_url + "-storage2/users/" + nels_id
     logger.debug(f"API URL: {api_url}")
     response = requests.get(api_url, auth=(nels_storage_client_key, nels_storage_client_secret))
     if (response.status_code == requests.codes.ok):
