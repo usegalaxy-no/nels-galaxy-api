@@ -41,6 +41,9 @@ mq = None
 db = nels_galaxy_db.DB()
 nels_galaxy_api = None
 tmp_dir = "/tmp/"
+nels_storage_client_key = None
+nels_storage_client_secret = None
+
 
 
 def init( config_file) -> {}:
@@ -57,7 +60,13 @@ def init( config_file) -> {}:
     instances = {}
     nels_galaxy_api = api_requests.ApiRequests(master_url, config['key'])
 
-    galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
+    global nels_storage_client_key, nels_storage_client_secret
+    nels_storage_client_key = config['nels_storage_key']
+    nels_storage_client_secret = config['nels_storage_client_secret']
+
+
+
+galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
     db.connect(galaxy_config['galaxy']['database_connection'])
     tmp_dir = config.get('tmp_dir', tmp_dir)
 
