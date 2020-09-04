@@ -43,6 +43,7 @@ nels_galaxy_api = None
 tmp_dir = "/tmp/"
 nels_storage_client_key = None
 nels_storage_client_secret = None
+nels_storage_url = None
 
 
 
@@ -60,9 +61,10 @@ def init( config_file) -> {}:
     instances = {}
     nels_galaxy_api = api_requests.ApiRequests(master_url, config['key'])
 
-    global nels_storage_client_key, nels_storage_client_secret
+    global nels_storage_client_key, nels_storage_client_secret, nels_storage_url
     nels_storage_client_key = config['nels_storage_client_key']
     nels_storage_client_secret = config['nels_storage_client_secret']
+    nels_storage_url = config['nels_storage_url']
 
 
 
@@ -238,7 +240,7 @@ def get_ssh_credential(nels_id: int):
     #    api_url = 'https://nels.bioinfo.no/'
     #    api_url = 'https://test-fe.cbu.uib.no/nels-'
 
-    api_url = nels_url + "-storage2/users/" + nels_id
+    api_url = nels_storage_url + "/users/" + nels_id
     logger.debug(f"API URL: {api_url}")
     response = requests.get(api_url, auth=(nels_storage_client_key, nels_storage_client_secret))
     if (response.status_code == requests.codes.ok):
