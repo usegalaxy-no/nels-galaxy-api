@@ -201,7 +201,7 @@ def run_push_export( tracker ):
 
         history = nels_galaxy_api.get_history_export(export_id=tracker['export_id'])
         logger.debug( f"history: {history}")
-        create_time = tracker['create_time'].replace("-", "").replace(":", "")
+        create_time = str(tracker['create_time']).replace("-", "").replace(":", "")
         logger.debug( f'Create time {create_time}')
         create_time = re.sub(r'\.\d+', '', create_time)
         logger.debug( f'Create time {create_time}')
@@ -218,7 +218,7 @@ def run_push_export( tracker ):
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
     except Exception as e:
         nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
-        logger.debug(f" {tracker['id']} transfer to NeLS error: {e}")
+        logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
 
 
 
