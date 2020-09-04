@@ -225,7 +225,6 @@ def run_push_export( tracker ):
         logger.debug(f"ssh info {ssh_info}")
 
         logger.debug( f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}")
-                              )
 
 
         cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} \"{ssh_info['username']}@{ssh_info['hostname']}:{dest_file}\""
