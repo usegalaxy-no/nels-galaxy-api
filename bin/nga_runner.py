@@ -224,14 +224,12 @@ def run_push_export( tracker ):
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"ssh info {ssh_info}")
 
-        logger.debug( f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}")
-        logger.debug (f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"')
 
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"'
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'push data')
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
-        cmd = f"rm {tracker["tmpfile"]}"
+        cmd = f"rm {tracker['tmpfile']}"
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'cleanup')
     except Exception as e:
