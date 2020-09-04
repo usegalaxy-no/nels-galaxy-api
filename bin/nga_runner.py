@@ -190,7 +190,7 @@ def run_fetch_export(tracker):
 
 def run_push_export( tracker ):
 
-    logger.debug('run_push_export')
+    logger.debug(f'run_push_export {tracker}')
     tracker_id = tracker['id']
 
     try:
@@ -278,13 +278,14 @@ def do_work(conn, ch, delivery_tag, body):
 
     if payload['state'] != tracker['state']:
         logger.warn(f"state in db {tracker['state']} differs from payload {payload['state']}")
+        tracker['state'] = payload['state']
 
 
     try:
 
         state = tracker['state']
 
-        logger.info(f"State: {state}")
+        logger.info(f"State: '{state}'")
 
         if state == 'pre-queueing':
             run_history_export( tracker )
