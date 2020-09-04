@@ -142,15 +142,15 @@ def run_history_export( tracking ):
 
 
         if export_id is None or export_id == '':
-            history = nels_galaxy_api.get_history_export(history_id=pre_queued_job['history_id'])
+            history = nels_galaxy_api.get_history_export(history_id=tracking['history_id'])
 
             if history is not None and history != '':
-                nels_galaxy_api.update_export(pre_queued_job['id'], {"export_id": history['export_id'], 'state': 'new'})
+                nels_galaxy_api.update_export(tracking['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
                 logger.error(f"No history id associated with {export_id}")
         else:
             export = nels_galaxy_api.get_history_export(export_id=export_id)
-            nels_galaxy_api.update_export(pre_queued_job['id'], {"export_id": export_id, 'state': export['state']})
+            nels_galaxy_api.update_export(tracking['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
                 submit_mq_job(tracking['id'], state=export['state'] )
