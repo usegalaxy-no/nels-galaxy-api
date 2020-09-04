@@ -163,9 +163,9 @@ def init(config_file: dict) -> None:
     return config
 
 
-def submit_mq_job(tracker_id:int, state:str = None ) -> None:
+def submit_mq_job(tracking_id:int, state:str = None ) -> None:
 
-    payload = {'tracker_id': tracker_id,
+    payload = {'tracking_id': tracking_id,
                'state': state}
 
     if mq is None:
@@ -207,7 +207,7 @@ class State(tornado.BaseHandler):
     def get(self, state_id):
         logger.debug("get state")
         self.check_token()
-        data = states.get(state_id, True)
+        data = states.get(state_id)
         if data is None:
             return self.send_response_404()
 
@@ -256,7 +256,7 @@ class UserExports(GalaxyHandler):
         self.check_token()
         user = db.get_user(email=user_email)
         if user is None or user == []:
-            return self.send_response_404()
+            return self.send_response_401()
 
         # Should only be one user with a given email!
         user = user[0]
@@ -274,6 +274,9 @@ class HistoryExportRequest(GalaxyHandler):
         logger.debug("request history export")
 
         user = self.get_user()
+        if user is None or user == []:
+            return self.send_response_401()
+
         data = {'user': user['email'], 'history_id': utils.encrypt_value(user['current_history_id'])}
         uuid = states.set( data )
 
@@ -546,15 +549,16 @@ class Export (GalaxyHandler):
 
     def post(self, instance, state_id):
 
-        #        post_values = self.post_values()
+        #logger.debug(f"POST VALUES: {self.request.body}")
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
+
         if instance == instance_id:
-            logger.debug( "No proxy access to state")
+            logger.debug( "Direct access to state")
             state = states.get( state_id)
         else:
-            logger.debug( "Proxy access to state")
+            logger.debug( "Callback access to state")
             state = instances[ instance]['api'].get_state(state_id)
 
         if state is None:
@@ -569,10 +573,11 @@ class Export (GalaxyHandler):
             tracking_id = self._register_export(instance_name, user, history_id, nels_id, location)
 
             submit_mq_job(tracking_id,  'pre-queueing')
-
+            logger.info(f"Redirecting to {instances[instance]['url']}")
             self.redirect(instances[instance]['url'])
 
         except Exception as e:
+
             logger.error(f"Error during export registation: {e}")
             logger.debug( f"State info for export: {state}")
             logger.debug( f"nels_id: {nels_id}")
@@ -649,8 +654,13 @@ def main():
     parser.add_argument('-c', '--config-file', required=True, help="nels-galaxy-api config file")
     parser.add_argument('-l', '--logfile', default=None, help="Logfile to write to, default is stdout")
     parser.add_argument('-v', '--verbose', default=4, action="count", help="Increase the verbosity of logging output")
+    parser.add_argument('-D', '--development', default=4, action="store_true", default=false, help="run in developemt mode")
 
     args = parser.parse_args()
+
+    if args.development:
+        global DEV
+        DEV = True
 
     if args.logfile:
         logger.init(name='nels-galaxy-api', log_file=args.logfile)
