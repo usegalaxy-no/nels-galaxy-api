@@ -172,7 +172,6 @@ def run_fetch_export(tracker):
     tracker_id = tracker['id']
 
     outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
-    logg
     nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-running'})
 
     try:
