@@ -66,7 +66,7 @@ def init( config_file) -> {}:
 
 
 
-galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
+    galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
     db.connect(galaxy_config['galaxy']['database_connection'])
     tmp_dir = config.get('tmp_dir', tmp_dir)
 
