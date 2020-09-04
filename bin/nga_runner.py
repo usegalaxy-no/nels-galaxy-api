@@ -179,7 +179,7 @@ def run_fetch_export(tracker):
 
 
         cmd = f"curl -H 'Authorization: bearer {instances[instance]['nga_key']}' -Lo {outfile} {instances[instance]['nga_url']}/history/download/{export_id}/"
-        logger.debug(f'fetch-cmd: {cmds}')
+        logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
         nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-ok'})
         submit_mq_job(tracker_id, state=export['fetch-ok'] )
