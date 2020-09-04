@@ -229,7 +229,7 @@ def run_push_export( tracker ):
 
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"'
         logger.debug("CMD:", cmd)
-        run_cmd(cmd)
+        run_cmd(cmd, 'push data')
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
     except Exception as e:
         nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
