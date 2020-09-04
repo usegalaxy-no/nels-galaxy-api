@@ -231,6 +231,9 @@ def run_push_export( tracker ):
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'push data')
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
+        cmd = f"rm {tracker["tmpfile"]}"
+        logger.debug(f"CMD: {cmd}")
+        run_cmd(cmd, 'cleanup')
     except Exception as e:
         import traceback
         traceback.print_tb(e.__traceback__)
