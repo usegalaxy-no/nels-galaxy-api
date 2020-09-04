@@ -1,7 +1,7 @@
 galaxy_config: <PATH-TO-GALAXY-CONFIG-DIR/galaxy.yml
 id: <GET FROM KIM>
 key: <GET-ACCESS-KEY-FROM-KIM>
-master_url: http://test.usegalaxy.no/nga/
+master_url: https://test.usegalaxy.no/nga/
 proxy_key: <GET-PROXY-KEY-FROM-KIM>
 port: 8008
 nels_url: "https://test-fe.cbu.uib.no/nels"
