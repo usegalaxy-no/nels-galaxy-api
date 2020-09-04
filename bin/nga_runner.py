@@ -200,22 +200,23 @@ def run_push_export( tracker ):
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
 
         history = nels_galaxy_api.get_history_export(export_id=tracker['export_id'])
+        logger.debug( f"history: {history}")
         create_time = tracker['create_time'].replace("-", "").replace(":", "")
         create_time = re.sub(r'\.\d+', '', create_time)
         history['name'] = history['name'].replace(" ", "_")
         dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
-
+        logger.debug(f"dest file: {dest_file}")
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
+        logger.debug(f"ssh info {ssh_info}")
 
-
-        cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
+        cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} \"{ssh_info['username']}@{ssh_info['hostname']}:{dest_file}\""
         logger.debug("CMD:", cmd)
         run_cmd(cmd)
         nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
     except Exception as e:
         nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
-        logger.debug(f" tracker['id'] transfer to NeLS error: {e}")
+        logger.debug(f" {tracker['id']} transfer to NeLS error: {e}")
 
 
 
