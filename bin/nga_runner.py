@@ -182,11 +182,11 @@ def run_fetch_export(tracker):
         logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
         nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-ok'})
-        submit_mq_job(tracker_id, state=export['fetch-ok'] )
+        submit_mq_job(tracker_id, state='fetch-ok' )
 
     except Exception as e:
         nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-error'})
-        logger.debug(f" tracker['id'] fetch error: {e}")
+        logger.debug(f" {tracker['id']} fetch error: {e}")
 
     return
 
