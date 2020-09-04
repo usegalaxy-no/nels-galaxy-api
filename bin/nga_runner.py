@@ -272,7 +272,7 @@ def do_work(conn, ch, delivery_tag, body):
         raise Exception(f"Invalid message {payload}")
 
     tracker_id = payload['tracker_id']
-    tracker = db.get_export_tracker( tracker_id )
+    tracker = db.get_export_tracking( tracker_id )
 
     if payload['state'] != tracker['state']:
         logger.warn(f"state in db {tracker['state']} differs from payload {payload['state']}")
