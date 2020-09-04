@@ -164,8 +164,8 @@ def run_fetch_export(tracking):
 
     logger.debug('run_fetch_export')
 
-    export_id = tracker['export_id']
-    tracker_id = tracking['id']
+    export_id = tracking['export_id']
+    tracking_id = tracking['id']
 
     outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
     nels_galaxy_api.update_export(tracking_id, {'tmpfile': outfile, 'state':'fetch-running'})
@@ -189,26 +189,26 @@ def run_fetch_export(tracking):
 def run_push_export( tracking ):
 
     logger.debug('run_push_export')
-    tracker_id = tracking['id']
+    tracking_id = tracking['id']
 
     try:
-        nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
-        history = helper_api.get_history_export(export_id=tracker['export_id'])
+        nels_galaxy_api.update_export(tracking_id, {'state': 'nels-transfer-running'})
+        history = helper_api.get_history_export(export_id=tracking['export_id'])
         create_time = tracking['create_time'].replace("-", "").replace(":", "")
         create_time = re.sub(r'\.\d+', '', create_time)
         history['name'] = history['name'].replace(" ", "_")
-        dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
+        dest_file = f"{tracking['destination']}/{history['name']}-{create_time}.tgz"
 
 
-        ssh_info = get_ssh_credential(trackering['nels_id'])
+        ssh_info = get_ssh_credential(tracking['nels_id'])
 
 
-        cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracker['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
+        cmd = f"scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info['key_file']} {tracking['tmpfile']} {ssh_info['username']}@{ssh_info['hostname']}:{dest_file}"
         logger.debug("CMD:", cmd)
         run_cmd(cmd)
-        nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
+        nels_galaxy_api.update_export(tracking_id, {'state': 'nels-transfer-ok'})
     except Exception as e:
-        nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
+        nels_galaxy_api.update_export(tracking_id, {'state':'nels-transfer-error'})
         logger.debug(f" tracking['id'] transfer to NeLS error: {e}")
 
 
