@@ -61,7 +61,7 @@ def init( config_file) -> {}:
     nels_galaxy_api = api_requests.ApiRequests(master_url, config['key'])
 
     global nels_storage_client_key, nels_storage_client_secret
-    nels_storage_client_key = config['nels_storage_key']
+    nels_storage_client_key = config['nels_storage_client_key']
     nels_storage_client_secret = config['nels_storage_client_secret']
 
 
