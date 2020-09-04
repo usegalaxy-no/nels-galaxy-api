@@ -133,6 +133,7 @@ def run_history_export( tracker ):
         galaxy_instance = GalaxyInstance(instances[instance]['url'], key=instances[instance]['api_key'])
     except Exception as e :
         logger.error(f"Trigger export through bioblend: {e}")
+        return
 
     logger.debug( galaxy_instance )
 
@@ -171,9 +172,8 @@ def run_fetch_export(tracker):
     tracker_id = tracker['id']
 
     outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
+    logg
     nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-running'})
-
-    #    token   = 'usegalaxy_secret'
 
     try:
         cmd = f"curl -H 'Authorization: bearer {token}' -Lo {outfile} {helper_url}/history/download/{export_id}/"
@@ -291,6 +291,7 @@ def do_work(conn, ch, delivery_tag, body):
             run_history_export( tracker )
 
         elif state == 'ok':
+            logger.debug('run_fetch_export')
             run_fetch_export( tracker )
 
         elif state == 'fetch-ok':
@@ -321,6 +322,8 @@ def main():
 
     args = parser.parse_args()
 
+    config = config_utils.readin_config_file( args.config )
+
 
     if args.logfile:
         logger.init(name='nga_runner', log_file=args.logfile)
@@ -331,7 +334,6 @@ def main():
     logger.info(f'startup {version}')
 
 
-    config = config_utils.readin_config_file( args.config )
 
 
     api_requests.set_token( config['key'])
