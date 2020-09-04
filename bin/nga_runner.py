@@ -268,10 +268,10 @@ def do_work(conn, ch, delivery_tag, body):
         print( e )
         return
 
-    if "tracking_id" not in payload or 'state' not in payload:
+    if "tracker_id" not in payload or 'state' not in payload:
         raise Exception(f"Invalid message {payload}")
 
-    tracking_id = payload['tracking_id']
+    tracking_id = payload['tracker_id']
     tracking = db.get_export_tracking( tracking_id )
 
     if payload['state'] != tracking['state']:
