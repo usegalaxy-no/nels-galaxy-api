@@ -39,6 +39,7 @@ version = '0.0.0'
 mq = None
 db = nels_galaxy_db.DB()
 nels_galaxy_api = None
+tmp_dir = "/tmp/"
 
 
 def init( config_file) -> {}:
@@ -48,7 +49,7 @@ def init( config_file) -> {}:
     # set incoming and proxy keys
     api_requests.set_token(config.get('proxy_key', None))
 
-    global master_url, nels_url, instances, version, db, nels_galaxy_api
+    global master_url, nels_url, instances, version, db, nels_galaxy_api, tmp_dir
     master_url = config['master_url'].rstrip("/")
     nels_url = config['nels_url'].rstrip("/")
     version = version_utils.as_string()
@@ -57,6 +58,7 @@ def init( config_file) -> {}:
 
     galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
     db.connect(galaxy_config['galaxy']['database_connection'])
+    tmp_dir = config.get('tmp_dir', tmp_dir)
 
 
 
