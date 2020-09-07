@@ -1,0 +1,450 @@
+#!/usr/bin/env python3
+
+import argparse
+import re
+
+import pprint as pp
+import sys
+from tabulate import tabulate
+
+sys.path.append(".")
+
+import kbr.config_utils as config_utils
+import kbr.log_utils as logger
+import kbr.mq_utils as mq_utils
+import kbr.version_utils as version_utils
+import kbr.args_utils as args_utils
+import kbr.string_utils as string_utils
+import json
+
+from bioblend.galaxy import GalaxyInstance
+
+
+import nels_galaxy_api.api_requests as api_requests
+
+
+verbose = False
+version = version_utils.as_string()
+
+mq = mq_utils.Mq()
+
+def readable_date(timestamp:str) -> str:
+
+    if timestamp is None:
+        return timestamp
+
+    timestamp = timestamp.replace('T', ' ')
+    timestamp = re.sub(r'\.\d+', '', timestamp)
+
+    return timestamp
+
+def init( config_file:str) -> {}:
+    config = config_utils.readin_config_file(config_file)
+    logger.info("init from config ")
+
+    master_url = config['master_url'].rstrip("/")
+
+    instances = {}
+    master_api = api_requests.ApiRequests(master_url, config['key'])
+    config['master_api'] = master_api
+
+#    nels_storage_client_key = config['nels_storage_client_key']
+#    nels_storage_client_secret = config['nels_storage_client_secret']
+#    nels_storage_url = config['nels_storage_url'].rstrip("/")
+
+#    galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
+#    db.connect(galaxy_config['galaxy']['database_connection'])
+#    tmp_dir = config.get('tmp_dir', tmp_dir)
+
+    mq.connect(uri=config['mq_uri'])
+
+    tmp_instances = {}
+
+    for iid in config['instances']:
+        instance = config['instances'][iid]
+
+#        print( instance )
+
+
+        if 'active' not in instance or not instance['active']:
+            continue
+
+        instance['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'])
+        instance['id']  = iid
+        tmp_instances[ iid ] = instance
+        tmp_instances[ instance['name'] ] = instance
+#        print( tmp_instances )
+
+
+    config['instances'] = tmp_instances
+#    logger.debug( config )
+
+
+    return config
+
+
+def ping_hosts( config:{}):
+
+    pings = []
+
+    for instance_id in config['instances']:
+        if config['instances'][ instance_id]['name'] == instance_id:
+            continue
+
+        instance = config['instances'][ instance_id]
+        ping = {'name': instance['name'], 'reachable': False, 'secure reachable': False, 'api-version': 'NA', 'disk free': 'NA'}
+        try:
+            base_info = instance['api'].get_base()
+            ping['api-version'] = base_info['version']
+            ping['reachable'] = True
+            disk_info = instance['api'].get_info()
+#            print( disk_info )
+            ping['disk free'] = f"{disk_info['perc_free']:>3.2f}% ({disk_info['free_gb']:>7.2f} GB)"
+            ping['secure reachable'] = True
+        except Exception as e:
+            logger.error(f'Could not fetch all information for {instance["name"]}: {e}')
+            pass
+
+        pings.append( ping)
+
+    print(tabulate( pings, headers="keys", tablefmt="psql" ))
+
+
+
+def get_users( config:{}, instance_name:str=None):
+
+    users = []
+    brief = []
+
+    if instance_name == "help":
+        print("help: users [instance-name]")
+        return
+
+
+    if instance_name:
+        global verbose
+        verbose = True
+
+    for instance_id in config['instances']:
+        if instance_name and instance_id != instance_name:
+            continue
+
+        if config['instances'][ instance_id]['name'] != instance_id:
+            continue
+
+        instance = config['instances'][ instance_id]
+
+        instance_users = []
+        tmp_users = instance['api'].get_users()
+        brief.append({'name': instance['name'], 'users': len(tmp_users)})
+
+        if verbose:
+            tmp_users = sorted(tmp_users, key=lambda x: x['email'].lower())
+
+            for tmp_user in tmp_users:
+
+                tmp_user['instance'] = instance['name']
+                tmp_user['active'] = bool(tmp_user['active'])
+                tmp_user['deleted'] = bool(tmp_user['deleted'])
+#                del tmp_user['id']
+
+                instance_users.append( tmp_user )
+
+            users += sorted(instance_users, key=lambda x: x['email'].lower())
+
+
+    if verbose:
+        print(tabulate( users, headers="keys", tablefmt="psql" ))
+    else:
+        print(tabulate( brief, headers="keys", tablefmt="psql" ))
+
+
+def get_histories( config:{}, instance_name:str=None, user_email:str=None):
+
+    histories = []
+    brief     = []
+
+    if instance_name == "help":
+        print("help: histories [instance-name] [user-email]")
+        return
+
+
+    if user_email:
+        global verbose
+        verbose = True
+
+
+    for instance_id in config['instances']:
+        if instance_name and instance_id != instance_name:
+            continue
+
+
+        if config['instances'][ instance_id]['name'] != instance_id:
+            continue
+
+
+        instance = config['instances'][ instance_id]
+
+        users = instance['api'].get_users()
+        users = sorted(users, key=lambda x: x['email'].lower())
+
+        for user in users:
+            if user_email is not None and user['email'] != user_email:
+                continue
+
+            tmp_histories = instance['api'].get_user_histories(user['email'])
+            brief.append({'name':instance['name'], 'user': user['email'], 'histories': len( tmp_histories )})
+            if verbose:
+                for tmp_history in tmp_histories:
+                    tmp_history['instance'] = instance['name']
+                    tmp_history['changed'] = readable_date(tmp_history['update_time'])
+                    del tmp_history['update_time']
+
+                    tmp_history['user'] = user['email']
+                    del tmp_history['hid_counter']
+
+                    histories.append( tmp_history )
+
+
+    if verbose:
+        print(tabulate( histories, headers="keys", tablefmt="psql" ))
+    else:
+        print(tabulate( brief, headers="keys", tablefmt="psql"  ))
+
+
+def get_exports( config:{}, instance_name:str=None, user_email:str=None):
+
+    exports = []
+    brief     = []
+
+    if instance_name == "help":
+        print("help: histories [instance-name] [user-email]")
+        return
+
+
+    for instance_id in config['instances']:
+        if instance_name and instance_id != instance_name:
+            continue
+
+
+        if config['instances'][ instance_id]['name'] != instance_id:
+            continue
+
+
+        instance = config['instances'][ instance_id]
+
+        users = instance['api'].get_users()
+        users = sorted(users, key=lambda x: x['email'].lower())
+
+        for user in users:
+            if user_email is not None and user['email'] != user_email:
+                continue
+
+            tmp_exports = instance['api'].get_user_history_exports(user['email'])
+            nr_exports = len( tmp_exports )
+            if not nr_exports:
+                continue
+
+            brief.append({'name':instance['name'], 'user': user['email'], 'instance exports':  nr_exports })
+            for tmp_export in tmp_exports:
+                if not verbose:
+                    del tmp_export['export_id']
+                    del tmp_export['job_id']
+                    del tmp_export['history_id']
+
+                tmp_export['instance'] = instance['name']
+                tmp_export['user'] = user['email']
+                tmp_export['created'] = readable_date(tmp_export['create_time'])
+                del tmp_export['create_time']
+
+                exports.append( tmp_export )
+
+
+    if user_email:
+        print(tabulate( exports, headers="keys", tablefmt="psql" ))
+    else:
+        print(tabulate( brief, headers="keys", tablefmt="psql"  ))
+
+
+def get_requests(config:{}, commands=[]):
+
+    requests = []
+    brief     = []
+
+    if len(commands) == 0:
+        commands.append( 'all')
+
+    sub_command = commands.pop(0)
+
+    if sub_command == "help":
+        print("requests: requests instance instance-name [email]")
+        print("requests: requests user user-email")
+        print("requests: requests all ")
+        return
+
+    if sub_command == 'instance':
+        instance_name = args_utils.get_or_fail(commands, "Instance name is required" )
+        user_email = args_utils.get_or_default(commands, None )
+
+        instance_id = config['instances'][instance_name]['id']
+
+        if instance_id and user_email:
+            requests = config['master_api'].get_user_instance_exports(user_email, instance_id)
+
+        elif instance_id:
+            requests = config['master_api'].get_instance_exports(instance_id)
+
+    elif sub_command == 'user':
+        user_email = args_utils.get_or_fail(commands, "user email is required" )
+        requests = config['master_api'].get_user_exports(user_email)
+    else:
+        requests = config['master_api'].get_exports()
+
+
+    for request in requests:
+
+        request['update_time'] = readable_date(request['update_time'])
+        request['create_time'] = readable_date(request['create_time'])
+
+        if not verbose:
+            for k in ['history_id', 'export_id', 'tmpfile', 'nels_id', 'destination']:
+                del request[k]
+
+
+    print(tabulate( requests, headers="keys", tablefmt="psql"   ))
+
+
+def submit_mq_job(tracker_id:int, state:str = None ) -> None:
+
+    payload = {'tracker_id': tracker_id,
+               'state': state}
+
+    if mq is None:
+        logger.error('MQ not configured, cannot send message')
+        return
+
+    mq.publish(body=json.dumps(payload))
+
+
+def queue_job(config:{}, commands=[]):
+
+    requests = []
+    brief     = []
+
+    if len(commands) == 0:
+        print("requests: queue job-id [new-state]")
+        return
+
+    job_id = args_utils.get_or_fail(commands, "Job id is required" )
+    state = args_utils.get_or_default(commands, None )
+
+    print( f'{job_id} 00>> {state}')
+
+    print( f'{job_id} 00>> {state}')
+
+    tracker = config['master_api'].get_export( job_id)
+    if tracker is None:
+        print(f"Unknown job id {job_id}")
+        sys.exit(1)
+
+    del tracker['id']
+    del tracker['create_time']
+    del tracker['update_time']
+
+#    tracker = config['master_api'].post_export( job_id)
+
+    if state is not None and state != tracker['state']:
+
+        config['master_api'].update_export(job_id, {'state':state})
+    else:
+        state = tracker['state']
+
+#    job_id = config['master_api'].decrypt( job_id )
+    submit_mq_job( tracker_id=job_id, state=state)
+
+
+
+def main():
+
+    commands = ['ping', 'instance', 'users', 'histories', 'exports', 'requests', 'queue', 'help']
+
+    parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
+
+    parser.add_argument('-c', '--config', required=True, help="NGA config file")
+    parser.add_argument('-v', '--verbose', default=False, action="store_true",  help="Verbose output")
+    parser.add_argument('command', nargs='*', help="{}".format(",".join(commands)))
+
+    args = parser.parse_args()
+
+    logger.init(name='nga_cli')
+
+    global verbose
+    verbose = args.verbose
+
+
+
+    config = init( args.config)
+
+    args_utils.min_count(1, len(args.command), msg="tos_cli takes one of the following commands: {}".format(string_utils.comma_sep(commands)))
+
+
+    command = args.command.pop(0)
+
+    if command == 'ping':
+        ping_hosts( config )
+        sys.exit()
+        sys.exit()
+    elif command == 'users':
+        get_users(config, args_utils.get_or_default(args.command, None))
+        sys.exit()
+    elif command == 'histories':
+        get_histories(config, instance_name=args_utils.get_or_default(args.command, None),
+                              user_email=args_utils.get_or_default(args.command, None))
+        sys.exit()
+    elif command == 'exports':
+        get_exports(config, instance_name=args_utils.get_or_default(args.command, None),
+                            user_email=args_utils.get_or_default(args.command, None))
+        sys.exit()
+    elif command == 'requests':
+        get_requests(config, args.command)
+        sys.exit()
+
+    elif command == 'queue':
+        queue_job(config, args.command)
+
+        sys.exit()
+
+
+    else:
+        print("The tool support the following commands: {}\n".format(string_utils.comma_sep( commands )))
+        parser.print_usage()
+        parser.add_argument('command', nargs='+', help="{}".format(",".join(commands)))
+        sys.exit( 1 )
+
+
+
+
+if __name__ == "__main__":
+    main()
+
+
+# class ExportBulk ( Export ):
+#
+#     def endpoint(self):
+#         return("/export/")
+#
+#     def post(self, instance:str, user:str=None):
+#         #        args =  self.arguments()
+#         #post_values =  self.post_values()
+#         nels_id = self.get_body_argument("nelsId", default=None)
+#         location = self.get_body_argument("selectedFiles", default=None)
+#         # This is a usegalaxy instance, get the information from the session
+#
+#         #This will not work!, need to use the CLI for this as the token will be wrong
+#         histories = requests.get_user_histories(instance, user_id)
+#         for history in histories:
+#             try:
+#                 self._register_export(instance, user, history['id'], nels_id, location)
+#                 self.send_response_204()
+#             except:
+#                 self.send_response_400()
