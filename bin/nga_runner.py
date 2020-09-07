@@ -28,9 +28,9 @@ import kbr.config_utils as config_utils
 import kbr.version_utils as version_utils
 import kbr.log_utils as logger
 
-import master_api.api_requests as api_requests
-import master_api.db as db
-import master_api.db as nels_galaxy_db
+import nels_galaxy_api.api_requests as api_requests
+#import nels_galaxy_api.db as db
+import nels_galaxy_api.db as nels_galaxy_db
 
 
 master_url = None
