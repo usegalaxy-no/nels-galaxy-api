@@ -95,15 +95,19 @@ class ApiRequests( object ):
 
 
     def decrypt(self, export_id:str):
-        return self._request_get(f"{self._base_url}/decrypt/{export_id}")
+        return self._request_get(f"{self._base_url}/decrypt/{export_id}/")
 
     def encrypt(self, export_id:str):
-        return self._request_get(f"{self._base_url}/encrypt/{export_id}")
+        return self._request_get(f"{self._base_url}/encrypt/{export_id}/")
 
     # full api specific functionality:
     ###############################################
     def add_export(self, instance:str, user:str, history_id:str, data:{}):
         return self._request_post(f"{self._base_url}/export/{instance}/{user}/{history_id}/", data=data)
+
+    def clone_export(self, tracking_id:str, data:{}):
+        return self._request_post(f"{self._base_url}/export/{tracking_id}/clone/", data=data)
+
 
     def add_bulk_export(self, instance:str, user:str, data:{}):
         return self._request_post(f"{self._base_url}/export/{instance}/{user}/bulk/", data)
