@@ -508,6 +508,32 @@ class Tos(GalaxyHandler):
         return self.send_response_404()
 
 
+class CloneExport (GalaxyHandler):
+
+    def endpoint(self):
+        return ("/export/ID/clone/")
+
+    def get(self, tracking_id):
+
+        logger.debug("clone export tracking")
+        self.check_token()
+        tracking_id = utils.decrypt_value(tracking_id)
+        tracking = db.get_export_tracking(tracking_id)
+        for k in ['id', 'create_time', 'update_time ']:
+            del tracking[ k ]
+
+        args = self.arguments()
+        if 'state' in args:
+            tracking['state'] = args['state']
+
+        tracking_id = db.add_export_tracking(tracking)
+        tracking = utils.encrypt_ids(db.get_export_tracking(tracking_id))
+
+        self.send_response_200()
+
+        self.send_response_404()
+
+
 class Export (GalaxyHandler):
 
     def endpoint(self):
@@ -517,7 +543,7 @@ class Export (GalaxyHandler):
 
         logger.debug("get tracking details")
         self.check_token()
-#        tracking_id = utils.decrypt_value(tracking_id)
+        tracking_id = utils.decrypt_value(tracking_id)
         tracking = utils.encrypt_ids(db.get_export_tracking(tracking_id))
         self.send_response(data=tracking)
 
@@ -572,7 +598,10 @@ class Export (GalaxyHandler):
             history_id = state[ 'history_id' ]
             tracking_id = self._register_export(instance_name, user, history_id, nels_id, location)
 
+            tracking_id = utils.encrypt_ids( tracking_id )
+
             submit_mq_job(tracking_id,  'pre-queueing')
+
             logger.info(f"Redirecting to {instances[instance]['url']}")
             self.redirect(instances[instance]['url'])
 
@@ -693,9 +722,6 @@ def main():
             (r'/history/exports/?$', HistoryExportsList),  # for the local instance, all, brief is default       # done
             (r'/history/download/(\w+)/?$', HistoryDownload),  # fetching exported histories                     # skip
 
-            # Might drop these two
-#            (r'/decrypt/(\w+)/?$', Decrypt),
-#            (r'/encrypt/(\w+)/?$', Encrypt)
             ]
 
     # Terms of service server:
@@ -705,7 +731,8 @@ def main():
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
         logger.debug( "setting the master endpoints")
-        urls += [(r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
+        urls += [(r'/export/(\w+)/clone/?$', CloneExport),  # get or patch an export request
+                 (r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
                  (r'/export/(\w+)/?$', Export),  # get or patch an export request # skip
 
                  (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList), # user_email # done
@@ -717,6 +744,9 @@ def main():
                  # For testing the setup
 
                  (r'/proxy/?$', ProxyTest),  # an  endpoint for testing the proxy connection #done
+                 # Might drop these two
+                 #(r'/decrypt/(\w+)/?$', Decrypt),
+                 #(r'/encrypt/(\w+)/?$', Encrypt)
                  ]
 
     if DEV:
