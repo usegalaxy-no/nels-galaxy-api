@@ -28,9 +28,9 @@ import kbr.config_utils as config_utils
 import kbr.version_utils as version_utils
 import kbr.log_utils as logger
 
-import nels_galaxy_api.api_requests as api_requests
-import nels_galaxy_api.db as db
-import nels_galaxy_api.db as nels_galaxy_db
+import master_api.api_requests as api_requests
+import master_api.db as db
+import master_api.db as nels_galaxy_db
 
 
 master_url = None
@@ -39,7 +39,7 @@ instances  = None
 version = '0.0.0'
 mq = None
 db = nels_galaxy_db.DB()
-nels_galaxy_api = None
+master_api = None
 tmp_dir = "/tmp/"
 nels_storage_client_key = None
 nels_storage_client_secret = None
@@ -54,12 +54,12 @@ def init( config_file) -> {}:
     # set incoming and proxy keys
     api_requests.set_token(config.get('proxy_key', None))
 
-    global master_url, nels_url, instances, version, db, nels_galaxy_api, tmp_dir
+    global master_url, nels_url, instances, version, db, master_api, tmp_dir
     master_url = config['master_url'].rstrip("/")
     nels_url = config['nels_url'].rstrip("/")
     version = version_utils.as_string()
     instances = {}
-    nels_galaxy_api = api_requests.ApiRequests(master_url, config['key'])
+    master_api = api_requests.ApiRequests(master_url, config['key'])
 
     global nels_storage_client_key, nels_storage_client_secret, nels_storage_url
     nels_storage_client_key = config['nels_storage_client_key']
@@ -137,7 +137,7 @@ def run_history_export( tracker ):
     if info['free_gb'] < 30:
         # Not enough free disk space to do this, alert sysadmin
         logger.error("Not enough free space for export, email admin.")
-        nels_galaxy_api.update_export(tracker['id'], {'state': 'disk-space-error'})
+        master_api.update_export(tracker['id'], {'state': 'disk-space-error'})
         return
 
 
@@ -158,15 +158,15 @@ def run_history_export( tracker ):
 
 
         if export_id is None or export_id == '':
-            history = nels_galaxy_api.get_history_export(history_id=tracker['history_id'])
+            history = master_api.get_history_export(history_id=tracker['history_id'])
 
             if history is not None and history != '':
-                nels_galaxy_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
+                master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
                 logger.error(f"No history id associated with {export_id}")
         else:
-            export = nels_galaxy_api.get_history_export(export_id=export_id)
-            nels_galaxy_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
+            export = master_api.get_history_export(export_id=export_id)
+            master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
                 submit_mq_job(tracker['id'], state=export['state'] )
@@ -185,7 +185,7 @@ def run_fetch_export(tracker):
     instance = tracker['instance']
 
     outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), export_id)
-    nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-running'})
+    master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-running'})
 
     try:
 
@@ -193,11 +193,11 @@ def run_fetch_export(tracker):
         cmd = f"curl -H 'Authorization: bearer {instances[instance]['nga_key']}' -Lo {outfile} {instances[instance]['nga_url']}/history/download/{export_id}/"
         logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
-        nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-ok'})
+        master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
         submit_mq_job(tracker_id, state='fetch-ok' )
 
     except Exception as e:
-        nels_galaxy_api.update_export(tracker_id, {'tmpfile': outfile, 'state':'fetch-error'})
+        master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-error'})
         logger.debug(f" {tracker['id']} fetch error: {e}")
 
     return
@@ -209,9 +209,9 @@ def run_push_export( tracker ):
     tracker_id = tracker['id']
 
     try:
-        nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
+        master_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
 
-        history = nels_galaxy_api.get_history_export(export_id=tracker['export_id'])
+        history = master_api.get_history_export(export_id=tracker['export_id'])
         logger.debug( f"history: {history}")
         create_time = str(tracker['create_time']).replace("-", "").replace(":", "").replace(" ", "_")
         logger.debug( f'Create time {create_time}')
@@ -228,7 +228,7 @@ def run_push_export( tracker ):
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"'
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'push data')
-        nels_galaxy_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
+        master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
         cmd = f"rm {tracker['tmpfile']}"
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'cleanup')
@@ -236,7 +236,7 @@ def run_push_export( tracker ):
         import traceback
         traceback.print_tb(e.__traceback__)
 
-        nels_galaxy_api.update_export(tracker_id, {'state':'nels-transfer-error'})
+        master_api.update_export(tracker_id, {'state': 'nels-transfer-error'})
         logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
 
 
@@ -300,7 +300,7 @@ def do_work(conn, ch, delivery_tag, body):
         raise Exception(f"Invalid message {payload}")
 
     tracker_id = payload['tracker_id']
-    tracker = db.get_export_tracking( tracker_id )
+    tracker = master_api.get_export( tracker_id )
 
     if payload['state'] != tracker['state']:
         logger.warn(f"state in db {tracker['state']} differs from payload {payload['state']}")
