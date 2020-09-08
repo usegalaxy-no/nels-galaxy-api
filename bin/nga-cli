@@ -328,9 +328,6 @@ def submit_mq_job(tracker_id:int, state:str = None ) -> None:
 
 def queue_job(config:{}, commands=[]):
 
-    requests = []
-    brief     = []
-
     if len(commands) == 0:
         print("requests: queue job-id [new-state]")
         return
@@ -354,19 +351,43 @@ def queue_job(config:{}, commands=[]):
 #    tracker = config['master_api'].post_export( job_id)
 
     if state is not None and state != tracker['state']:
-
-        config['master_api'].update_export(job_id, {'state':state})
+        config['master_api'].clone_export(job_id, {'state':state})
     else:
         state = tracker['state']
 
 #    job_id = config['master_api'].decrypt( job_id )
     submit_mq_job( tracker_id=job_id, state=state)
 
+def requeue_job(config:{}, commands=[]):
+
+    if len(commands) == 0 or commands[0] == 'help':
+        print("requests: requeue job-id new-state")
+        return
+
+    job_id = args_utils.get_or_fail(commands, "Job id is required" )
+    state  = args_utils.get_or_fail(commands, "New job state is required" )
+
+    print( f'{job_id} 00>> {state}')
+
+    tracker = config['master_api'].requeue_export( job_id, {'state':state})
+
+
+def restate_job(config:{}, commands=[]):
+
+    if len(commands) == 0 or commands[0] == 'help':
+        print("requests: queue job-id [new-state]")
+        return
+
+    job_id = args_utils.get_or_fail(commands, "Job id is required" )
+    state  = args_utils.get_or_fail(commands, "New job state is required" )
+
+    config['master_api'].update_export(job_id, {'state':state})
+
 
 
 def main():
 
-    commands = ['ping', 'instance', 'users', 'histories', 'exports', 'requests', 'queue', 'help']
+    commands = ['ping', 'instance', 'users', 'histories', 'exports', 'requests', 'queue', 'queue', 'restate', 'help']
 
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
@@ -411,7 +432,12 @@ def main():
 
     elif command == 'queue':
         queue_job(config, args.command)
-
+        sys.exit()
+    elif command == 'requeue':
+        requeue_job(config, args.command)
+        sys.exit()
+    elif command == 'restate':
+        restate_job(config, args.command)
         sys.exit()
 
 
