@@ -605,7 +605,7 @@ class Export (GalaxyHandler):
             history_id = state[ 'history_id' ]
             tracking_id = self._register_export(instance_name, user, history_id, nels_id, location)
 
-            tracking_id = utils.encrypt_ids( tracking_id )
+            tracking_id = utils.encrypt_value( tracking_id )
 
             submit_mq_job(tracking_id)
 
