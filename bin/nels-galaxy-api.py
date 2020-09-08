@@ -513,25 +513,32 @@ class CloneExport (GalaxyHandler):
     def endpoint(self):
         return ("/export/ID/clone/")
 
-    def get(self, tracking_id):
+    def post(self, tracking_id):
 
         logger.debug("clone export tracking")
         self.check_token()
-        tracking_id = utils.decrypt_value(tracking_id)
-        tracking = db.get_export_tracking(tracking_id)
-        for k in ['id', 'create_time', 'update_time ']:
-            del tracking[ k ]
 
-        args = self.arguments()
-        if 'state' in args:
-            tracking['state'] = args['state']
 
-        tracking_id = db.add_export_tracking(tracking)
-        tracking = utils.encrypt_ids(db.get_export_tracking(tracking_id))
+        values = self.post_values()
+        self.require_arguments(values, ['state'])
+        state = values['state']
+        try:
+            tracking_id = utils.decrypt_value(tracking_id)
+            tracking = db.get_export_tracking(tracking_id)
+            tracking['state'] = state
 
-        self.send_response_200()
+            for k in ['id', 'create_time', 'update_time ']:
+                del tracking[ k ]
 
-        self.send_response_404()
+            tracking['log'] = f"Cloned export tracker {tracking_id} and changed state to {state}"
+            tracking_id = db.add_export_tracking(tracking)
+            tracking_id = utils.encrypt_value(tracking_id)
+            submit_mq_job(tracking_id,  state)
+
+            self.send_response_200()
+        except Exception as e:
+            self.send_response_404()
+
 
 
 class Export (GalaxyHandler):
@@ -731,7 +738,7 @@ def main():
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
         logger.debug( "setting the master endpoints")
-        urls += [(r'/export/(\w+)/clone/?$', CloneExport),  # get or patch an export request
+        urls += [(r'/export/(\w+)/clone/?$', CloneExport),  # clone  export request
                  (r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
                  (r'/export/(\w+)/?$', Export),  # get or patch an export request # skip
 
