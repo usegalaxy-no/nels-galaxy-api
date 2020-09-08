@@ -351,7 +351,7 @@ def queue_job(config:{}, commands=[]):
 #    tracker = config['master_api'].post_export( job_id)
 
     if state is not None and state != tracker['state']:
-        config['master_api'].clone_export(job_id, {'state':state})
+        config['master_api'].update_export(job_id, {'state':state})
     else:
         state = tracker['state']
 
