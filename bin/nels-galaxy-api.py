@@ -303,11 +303,11 @@ class HistoryExport(GalaxyHandler):
             filter = self.arguments()
 
             self.require_arguments(filter, ['history_id', ])
-#            history_id = utils.decrypt_value(filter['history_id'])
+            history_id = utils.decrypt_value(filter['history_id'])
             export = db.get_latest_export_for_history(history_id)
         else:
             logger.debug('getting by export_id')
-#            export_id = utils.decrypt_value(export_id)
+            export_id = utils.decrypt_value(export_id)
             export = db.get_export(export_id)
 
         if len(export):
