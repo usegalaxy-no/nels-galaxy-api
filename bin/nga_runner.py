@@ -294,6 +294,8 @@ def do_work(conn, ch, delivery_tag, body):
         payload = json.loads(body)
     except Exception as e:
         print( e )
+        cb = functools.partial(ack_message, ch, delivery_tag)
+        conn.add_callback_threadsafe(cb)
         return
 
     if "tracker_id" not in payload or 'state' not in payload:
@@ -331,6 +333,8 @@ def do_work(conn, ch, delivery_tag, body):
         if 'error' in payload and payload['error'] is not None:
             print(f"error: {payload['error']}")
             evaluate(payload["error"], ['requests', 'update_export'])
+        cb = functools.partial(ack_message, ch, delivery_tag)
+        conn.add_callback_threadsafe(cb)
 
 
     cb = functools.partial(ack_message, ch, delivery_tag)
