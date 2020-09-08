@@ -141,6 +141,7 @@ def run_history_export( tracker ):
             master_api.update_export(tracker['id'], {'state': 'disk-space-error'})
             return
     except Exception as e:
+        traceback.print_tb(e.__traceback__)
         print( f"Fetch info error {e}")
 
 
@@ -304,6 +305,8 @@ def do_work(conn, ch, delivery_tag, body):
         return
 
     if "tracker_id" not in payload or 'state' not in payload:
+        cb = functools.partial(ack_message, ch, delivery_tag)
+        conn.add_callback_threadsafe(cb)
         raise Exception(f"Invalid message {payload}")
 
     tracker_id = payload['tracker_id']
