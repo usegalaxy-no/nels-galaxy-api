@@ -16,6 +16,7 @@ import re
 import tempfile
 import time
 import requests
+import traceback
 
 from bioblend.galaxy import GalaxyInstance
 
@@ -330,9 +331,7 @@ def do_work(conn, ch, delivery_tag, body):
     except Exception as e:
         logger.error(f"Error in state selector: {e}")
 
-        if 'error' in payload and payload['error'] is not None:
-            print(f"error: {payload['error']}")
-            evaluate(payload["error"], ['requests', 'update_export'])
+        traceback.print_tb(e.__traceback__)
         cb = functools.partial(ack_message, ch, delivery_tag)
         conn.add_callback_threadsafe(cb)
 
