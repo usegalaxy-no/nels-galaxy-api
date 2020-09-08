@@ -561,7 +561,7 @@ class Export (GalaxyHandler):
         data = self.post_values()
         self.valid_arguments(data, ['state', 'export_id', 'tmpfile'])
         # need to decrypt the id otherwise things blow up!
-#        tracking_id = utils.decrypt_value(tracking_id)
+        tracking_id = utils.decrypt_value(tracking_id)
 
         db.update_export_tracking(tracking_id, data)
         return self.send_response_204()
