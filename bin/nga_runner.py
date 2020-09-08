@@ -30,21 +30,21 @@ import kbr.version_utils as version_utils
 import kbr.log_utils as logger
 
 import nels_galaxy_api.api_requests as api_requests
-#import nels_galaxy_api.db as db
-import nels_galaxy_api.db as nels_galaxy_db
 
+
+version = version_utils.as_string()
 
 master_url = None
-nels_url = None
+nels_url   = None
 instances  = None
-version = '0.0.0'
 mq = None
-db = nels_galaxy_db.DB()
+
 master_api = None
 tmp_dir = "/tmp/"
 nels_storage_client_key = None
 nels_storage_client_secret = None
 nels_storage_url = None
+sleep_time = 5
 
 
 
@@ -55,23 +55,20 @@ def init( config_file) -> {}:
     # set incoming and proxy keys
     api_requests.set_token(config.get('proxy_key', None))
 
-    global master_url, nels_url, instances, version, db, master_api, tmp_dir
+    global master_url, nels_url, instances, master_api, tmp_dir, sleep_time
     master_url = config['master_url'].rstrip("/")
     nels_url = config['nels_url'].rstrip("/")
-    version = version_utils.as_string()
     instances = {}
     master_api = api_requests.ApiRequests(master_url, config['key'])
 
-    global nels_storage_client_key, nels_storage_client_secret, nels_storage_url
+
+    global nels_storage_client_key, nels_storage_client_secret, nels_storage_url, sleep_time
     nels_storage_client_key = config['nels_storage_client_key']
     nels_storage_client_secret = config['nels_storage_client_secret']
     nels_storage_url = config['nels_storage_url'].rstrip("/")
 
-
-
-    galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
-    db.connect(galaxy_config['galaxy']['database_connection'])
     tmp_dir = config.get('tmp_dir', tmp_dir)
+    sleep_time = config.get('sleep_time', sleep_time)
 
 
 
@@ -157,6 +154,7 @@ def run_history_export( tracker ):
             export_id = galaxy_instance.histories.export_history(tracker['history_id'], maxwait=1, gzip=True)
         except Exception as e:
             logger.error(f"bioblend trigger export {e}")
+            master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
             return
 
 
@@ -197,8 +195,9 @@ def run_fetch_export(tracker):
         cmd = f"curl -H 'Authorization: bearer {instances[instance]['nga_key']}' -Lo {outfile} {instances[instance]['nga_url']}/history/download/{export_id}/"
         logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
-        master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
+        logger.debug('Done fetch cmd')
         submit_mq_job(tracker_id)
+        master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
 
     except Exception as e:
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-error'})
@@ -237,6 +236,7 @@ def run_push_export( tracker ):
         run_cmd(cmd, 'push data')
         master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
         cmd = f"rm {tracker['tmpfile']}"
+        master_api.update_export(tracker_id, {'state': 'finished'})
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'cleanup')
     except Exception as e:
@@ -309,6 +309,7 @@ def do_work(conn, ch, delivery_tag, body):
         cb = functools.partial(ack_message, ch, delivery_tag)
         conn.add_callback_threadsafe(cb)
         raise Exception(f"Invalid message {payload}")
+        return
 
     tracker_id = payload['tracker_id']
     tracker = master_api.get_export( tracker_id )
