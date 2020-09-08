@@ -98,10 +98,9 @@ def init( config_file) -> {}:
     return config
 
 
-def submit_mq_job(tracker_id:int, state:str = None ) -> None:
+def submit_mq_job(tracker_id:int ) -> None:
 
-    payload = {'tracker_id': tracker_id,
-               'state': state}
+    payload = {'tracker_id': tracker_id}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -175,7 +174,7 @@ def run_history_export( tracker ):
             master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
-                submit_mq_job(tracker['id'], state=export['state'] )
+                submit_mq_job(tracker['id'])
                 return
 
             break
@@ -200,7 +199,7 @@ def run_fetch_export(tracker):
         logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
-        submit_mq_job(tracker_id, state='fetch-ok' )
+        submit_mq_job(tracker_id)
 
     except Exception as e:
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-error'})
@@ -304,18 +303,13 @@ def do_work(conn, ch, delivery_tag, body):
         conn.add_callback_threadsafe(cb)
         return
 
-    if "tracker_id" not in payload or 'state' not in payload:
+    if "tracker_id" not in payload:
         cb = functools.partial(ack_message, ch, delivery_tag)
         conn.add_callback_threadsafe(cb)
         raise Exception(f"Invalid message {payload}")
 
     tracker_id = payload['tracker_id']
     tracker = master_api.get_export( tracker_id )
-
-    if payload['state'] != tracker['state']:
-        logger.warn(f"state in db {tracker['state']} differs from payload {payload['state']}")
-        tracker['state'] = payload['state']
-
 
     try:
 

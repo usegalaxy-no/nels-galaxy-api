@@ -163,10 +163,9 @@ def init(config_file: dict) -> None:
     return config
 
 
-def submit_mq_job(tracking_id:int, state:str = None ) -> None:
+def submit_mq_job(tracking_id:int ) -> None:
 
-    payload = {'tracker_id': tracking_id,
-               'state': state}
+    payload = {'tracker_id': tracking_id}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -533,7 +532,7 @@ class RequeueExport (GalaxyHandler):
             tracking['log'] = f"requeue export tracker {tracking_id} and changed state to {state}"
             tracking_id = db.add_export_tracking(tracking)
             tracking_id = utils.encrypt_value(tracking_id)
-            submit_mq_job(tracking_id,  state)
+            submit_mq_job(tracking_id )
 
             self.send_response_200()
         except Exception as e:
@@ -608,7 +607,7 @@ class Export (GalaxyHandler):
 
             tracking_id = utils.encrypt_ids( tracking_id )
 
-            submit_mq_job(tracking_id,  'pre-queueing')
+            submit_mq_job(tracking_id)
 
             logger.info(f"Redirecting to {instances[instance]['url']}")
             self.redirect(instances[instance]['url'])
