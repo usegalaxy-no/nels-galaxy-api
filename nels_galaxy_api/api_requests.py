@@ -38,11 +38,11 @@ class ApiRequests( object ):
 
         prepped = s.prepare_request(req)
 
-
         if self._token is not None:
             prepped.headers['Authorization'] = f"bearer {self._token}"
 
         r = s.send(prepped)
+        print( f"Status code {r.status_code}" )
         r.raise_for_status()
 
         if as_json and r.text:
