@@ -508,14 +508,14 @@ class Tos(GalaxyHandler):
         return self.send_response_404()
 
 
-class CloneExport (GalaxyHandler):
+class RequeueExport (GalaxyHandler):
 
     def endpoint(self):
-        return ("/export/ID/clone/")
+        return ("/export/ID/requeue/")
 
     def post(self, tracking_id):
 
-        logger.debug("clone export tracking")
+        logger.debug("requeue export tracking")
         self.check_token()
 
 
@@ -530,7 +530,7 @@ class CloneExport (GalaxyHandler):
             for k in ['id', 'create_time', 'update_time ']:
                 del tracking[ k ]
 
-            tracking['log'] = f"Cloned export tracker {tracking_id} and changed state to {state}"
+            tracking['log'] = f"requeue export tracker {tracking_id} and changed state to {state}"
             tracking_id = db.add_export_tracking(tracking)
             tracking_id = utils.encrypt_value(tracking_id)
             submit_mq_job(tracking_id,  state)
@@ -690,7 +690,7 @@ def main():
     parser.add_argument('-c', '--config-file', required=True, help="nels-galaxy-api config file")
     parser.add_argument('-l', '--logfile', default=None, help="Logfile to write to, default is stdout")
     parser.add_argument('-v', '--verbose', default=4, action="count", help="Increase the verbosity of logging output")
-    parser.add_argument('-D', '--development', default=4, action="store_true", default=false, help="run in developemt mode")
+    parser.add_argument('-D', '--development', default=False, action="store_true", help="run in developemt mode")
 
     args = parser.parse_args()
 
@@ -738,7 +738,7 @@ def main():
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
         logger.debug( "setting the master endpoints")
-        urls += [(r'/export/(\w+)/clone/?$', CloneExport),  # clone  export request
+        urls += [(r'/export/(\w+)/requeue/?$', RequeueExport),  # requeue  export request
                  (r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
                  (r'/export/(\w+)/?$', Export),  # get or patch an export request # skip
 
