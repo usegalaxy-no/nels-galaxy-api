@@ -527,7 +527,7 @@ class RequeueExport (GalaxyHandler):
             tracking = db.get_export_tracking(tracking_id)
             tracking['state'] = state
 
-            for k in ['id', 'create_time', 'update_time ']:
+            for k in ['id', 'create_time', 'update_time']:
                 del tracking[ k ]
 
             tracking['log'] = f"requeue export tracker {tracking_id} and changed state to {state}"
