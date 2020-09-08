@@ -161,14 +161,15 @@ def run_history_export( tracker ):
 
 
         if export_id is None or export_id == '':
-            history = instance['api'].get_history_export(history_id=tracker['history_id'])
+            history = instances[instance]['api'].get_history_export(history_id=tracker['history_id'])
 
             if history is not None and history != '':
                 master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
                 logger.error(f"No history id associated with {export_id}")
         else:
-            export = instance['api'].get_history_export(export_id=export_id)
+            print( f" API :: {instance['api']}" )
+            export = instances[instance]['api'].get_history_export(export_id=export_id)
             master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
@@ -217,7 +218,7 @@ def run_push_export( tracker ):
 
         master_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
 
-        history = instance['api'].get_history_export(export_id=tracker['export_id'])
+        history = instances[instance]['api'].get_history_export(export_id=tracker['export_id'])
         logger.debug( f"history: {history}")
         create_time = str(tracker['create_time']).replace("-", "").replace(":", "").replace(" ", "_")
         logger.debug( f'Create time {create_time}')
