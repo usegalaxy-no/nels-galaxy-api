@@ -89,9 +89,9 @@ def init( config_file) -> {}:
 
         instances[iid] = tmp_instances[iid]
         instance = tmp_instances[iid]
+        instance['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'])
 
         instances[instance['name']] = instance
-        instances[instance['name']]['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'])
 
 
 
@@ -331,7 +331,8 @@ def do_work(conn, ch, delivery_tag, body):
     except Exception as e:
         logger.error(f"Error in state selector: {e}")
 
-        traceback.print_tb(e.__traceback__)
+        print( traceback.print_tb(e.__traceback__) )
+
         cb = functools.partial(ack_message, ch, delivery_tag)
         conn.add_callback_threadsafe(cb)
 
