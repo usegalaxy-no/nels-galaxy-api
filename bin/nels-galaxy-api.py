@@ -165,7 +165,7 @@ def init(config_file: dict) -> None:
 
 def submit_mq_job(tracking_id:int, state:str = None ) -> None:
 
-    payload = {'tracking_id': tracking_id,
+    payload = {'tracker_id': tracking_id,
                'state': state}
 
     if mq is None:
