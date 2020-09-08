@@ -168,7 +168,7 @@ def run_history_export( tracker ):
             else:
                 logger.error(f"No history id associated with {export_id}")
         else:
-            print( f" API :: {instance['api']}" )
+#            print( f" API :: {instance['api']}" )
             export = instances[instance]['api'].get_history_export(export_id=export_id)
             master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
