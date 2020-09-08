@@ -105,15 +105,27 @@ class DB(object):
     def add_export_tracking(self, values):
         values['create_time'] = datetime.datetime.now()
 
+        log = None
+        if 'log' in values:
+            log = values['log']
+            del values['log']
+
         self._db.add('nels_export_tracking', values)
         tracking_id = self._db.get_id('nels_export_tracking', **values)
-        self.add_export_tracking_log(tracking_id, state="Created")
+        self.add_export_tracking_log(tracking_id, state="Created", log=log)
         return tracking_id
 
     def update_export_tracking(self, tracking_id: int, values: {}):
         values['update_time'] = datetime.datetime.now()
-        self.add_export_tracking_log(tracking_id, state=values['state'])
+
+        log = None
+        if 'log' in values:
+            log = values['log']
+            del values['log']
+
         self._db.update('nels_export_tracking', values, {'id': tracking_id})
+        self.add_export_tracking_log(tracking_id, state=values['state'], log=log)
+
 
     def create_export_tracking_logs_table(self) -> None:
         if self.table_exist('nels_export_tracking_log'):
@@ -122,15 +134,18 @@ class DB(object):
         q = '''CREATE TABLE nels_export_tracking_log (
                   id             SERIAL PRIMARY KEY,
                   create_time    TIMESTAMP,
-                  tracking_id     INT,
+                  tracking_id    INT,
                   log            VARCHAR(80)
                ); '''
         self._db.do(q)
 
-    def add_export_tracking_log(self, tracking_id: int, state: str) -> None:
+    def add_export_tracking_log(self, tracking_id: int, state: str, log:str=None) -> None:
         values = {'create_time': datetime.datetime.now(),
                   'tracking_id': tracking_id,
-                  'log': f"Changed state to {state}"}
+                  'log': log}
+        if log is None:
+            values[ 'log' ] = f"Changed state to {state}"
+
 
         self._db.add('nels_export_tracking_log', values)
 

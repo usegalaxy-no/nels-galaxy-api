@@ -105,9 +105,8 @@ class ApiRequests( object ):
     def add_export(self, instance:str, user:str, history_id:str, data:{}):
         return self._request_post(f"{self._base_url}/export/{instance}/{user}/{history_id}/", data=data)
 
-    def clone_export(self, tracking_id:str, data:{}):
-        return self._request_post(f"{self._base_url}/export/{tracking_id}/clone/", data=data)
-
+    def requeue_export(self, tracking_id:str, data:{}):
+        return self._request_post(f"{self._base_url}/export/{tracking_id}/requeue/", data=data)
 
     def add_bulk_export(self, instance:str, user:str, data:{}):
         return self._request_post(f"{self._base_url}/export/{instance}/{user}/bulk/", data)
