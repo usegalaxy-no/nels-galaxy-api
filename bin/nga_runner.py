@@ -133,9 +133,11 @@ def run_history_export( tracker ):
 
     instance = tracker['instance']
     print( instance )
-    print( instances[instance]['api'] )
-    info = instances[instance]['api'].get_info()
-    print( info )
+    try:
+        info = instances[instance]['api'].get_info()
+    except Exception as e:
+        print( f"Fetch info error {e}")
+
     if info['free_gb'] < 30:
         # Not enough free disk space to do this, alert sysadmin
         logger.error("Not enough free space for export, email admin.")
@@ -147,6 +149,7 @@ def run_history_export( tracker ):
         galaxy_instance = GalaxyInstance(instances[instance]['url'], key=instances[instance]['api_key'])
     except Exception as e :
         logger.error(f"Trigger export through bioblend: {e}")
+        master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
         return
 
 #    logger.debug( galaxy_instance )
