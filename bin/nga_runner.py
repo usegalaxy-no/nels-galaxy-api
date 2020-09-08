@@ -135,14 +135,14 @@ def run_history_export( tracker ):
     print( instance )
     try:
         info = instances[instance]['api'].get_info()
+        if info['free_gb'] < 30:
+            # Not enough free disk space to do this, alert sysadmin
+            logger.error("Not enough free space for export, email admin.")
+            master_api.update_export(tracker['id'], {'state': 'disk-space-error'})
+            return
     except Exception as e:
         print( f"Fetch info error {e}")
 
-    if info['free_gb'] < 30:
-        # Not enough free disk space to do this, alert sysadmin
-        logger.error("Not enough free space for export, email admin.")
-        master_api.update_export(tracker['id'], {'state': 'disk-space-error'})
-        return
 
 
     try:
