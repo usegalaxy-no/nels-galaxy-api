@@ -133,6 +133,7 @@ def run_history_export( tracker ):
 
     instance = tracker['instance']
     print( instance )
+    print( instances[instance]['api'] )
     info = instances[instance]['api'].get_info()
     print( info )
     if info['free_gb'] < 30:
@@ -333,8 +334,8 @@ def do_work(conn, ch, delivery_tag, body):
 
         print( traceback.print_tb(e.__traceback__) )
 
-        cb = functools.partial(ack_message, ch, delivery_tag)
-        conn.add_callback_threadsafe(cb)
+#        cb = functools.partial(ack_message, ch, delivery_tag)
+#        conn.add_callback_threadsafe(cb)
 
 
     cb = functools.partial(ack_message, ch, delivery_tag)
