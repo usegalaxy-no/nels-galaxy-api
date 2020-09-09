@@ -271,40 +271,19 @@ def get_exports( config:{}, instance_name:str=None, user_email:str=None):
         print(tabulate( brief, headers="keys", tablefmt="psql"  ))
 
 
-def get_requests(config:{}, commands=[]):
-
+def list_requests(config:{}, user:str=None, instance:str=None):
     requests = []
     brief     = []
 
-    if len(commands) == 0:
-        commands.append( 'all')
+    if user is not None and instance is not None:
+        requests = config['master_api'].get_user_instance_exports(user, instance)
 
-    sub_command = commands.pop(0)
-
-    if sub_command == "help":
-        print("requests: requests instance instance-name [email]")
-        print("requests: requests user user-email")
-        print("requests: requests all ")
-        return
-
-    if sub_command == 'instance':
-        instance_name = args_utils.get_or_fail(commands, "Instance name is required" )
-        user_email = args_utils.get_or_default(commands, None )
-
-        instance_id = config['instances'][instance_name]['id']
-
-        if instance_id and user_email:
-            requests = config['master_api'].get_user_instance_exports(user_email, instance_id)
-
-        elif instance_id:
-            requests = config['master_api'].get_instance_exports(instance_id)
-
-    elif sub_command == 'user':
-        user_email = args_utils.get_or_fail(commands, "user email is required" )
-        requests = config['master_api'].get_user_exports(user_email)
+    elif instance is not None:
+            requests = config['master_api'].get_instance_exports(instance)
+    elif user is not None:
+        requests = config['master_api'].get_user_exports(user)
     else:
         requests = config['master_api'].get_exports()
-
 
     for request in requests:
 
@@ -316,8 +295,57 @@ def get_requests(config:{}, commands=[]):
                 del request[k]
 
 
+    requests = sorted(requests, key=lambda x: (x['create_time'], x['update_time'] ))
+
     print(tabulate( requests, headers="keys", tablefmt="psql"   ))
 
+
+
+def get_requests(config:{}, commands=[]):
+
+
+    if len(commands) == 0:
+        commands.append( 'all')
+
+    sub_command = commands.pop(0)
+
+    if sub_command == 'instance':
+        instance_name = args_utils.get_or_fail(commands, "Instance name is required" )
+        user_email = args_utils.get_or_default(commands, None )
+        instance_id = config['instances'][instance_name]['id']
+
+        list_requests(config, user_email, instance_id)
+
+    elif sub_command == 'user':
+        user_email = args_utils.get_or_fail(commands, "user email is required" )
+        instance = args_utils.get_or_default(commands, None )
+        if instance is not None:
+            instance = config['instances'][instance]['id']
+        list_requests(config, user_email, instance)
+    elif sub_command == 'all':
+        list_requests(config)
+    elif sub_command == 'queue':
+        queue_job(config, commands)
+        sys.exit()
+    elif sub_command == 'requeue':
+        requeue_job(config, commands)
+        sys.exit()
+    elif sub_command == 'restate':
+        restate_job(config, commands)
+        sys.exit()
+    else:
+        if sub_command != 'help':
+            print( f"Error: Unknown command '{sub_command}'\n")
+
+        print("Help:")
+        print("==========================")
+        print("requests: requests [all] ")
+        print("requests: requests user user-email [instance]")
+        print("requests: requests instance instance-name [email]")
+
+        print("requests: requests queue ID [new-state]")
+        print("requests: requests requeue ID new-state")
+        print("requests: requests restate ID new-state")
 
 def submit_mq_job(tracker_id:int, state:str = None ) -> None:
 
@@ -436,17 +464,6 @@ def main():
     elif command == 'requests':
         get_requests(config, args.command)
         sys.exit()
-
-    elif command == 'queue':
-        queue_job(config, args.command)
-        sys.exit()
-    elif command == 'requeue':
-        requeue_job(config, args.command)
-        sys.exit()
-    elif command == 'restate':
-        restate_job(config, args.command)
-        sys.exit()
-
 
     else:
         print("The tool support the following commands: {}\n".format(string_utils.comma_sep( commands )))
