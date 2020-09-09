@@ -10,8 +10,6 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 import json
 import argparse
-import functools
-import threading
 import re
 import tempfile
 import time
@@ -37,7 +35,7 @@ version = version_utils.as_string()
 master_url = None
 nels_url   = None
 instances  = None
-mq = None
+mq = mq_utils.Mq()
 
 master_api = None
 tmp_dir = "/tmp/"
@@ -108,10 +106,7 @@ def submit_mq_job(tracker_id:int ) -> None:
 
 def run_cmd(cmd:str, name:str=None, verbose:bool=False):
 
-
-    logger.debug(f"{name}:")
-
-    logger.debug(f"cmd: {cmd}")
+    logger.debug(f"run-cmd: {cmd}")
 
     exec_info = run_utils.launch_cmd(cmd)
 
@@ -146,8 +141,6 @@ def run_history_export( tracker ):
         logger.error(f"Trigger export through bioblend: {e}")
         master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
         return
-
-#    logger.debug( galaxy_instance )
 
     while True:
         try:
@@ -191,10 +184,10 @@ def run_fetch_export(tracker):
 
     try:
 
-
         cmd = f"curl -H 'Authorization: bearer {instances[instance]['nga_key']}' -Lo {outfile} {instances[instance]['nga_url']}/history/download/{export_id}/"
         logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
+        time.sleep(60)
         logger.debug('Done fetch cmd')
         submit_mq_job(tracker_id)
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
@@ -230,9 +223,8 @@ def run_push_export( tracker ):
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"ssh info {ssh_info}")
 
-
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"'
-        logger.debug(f"CMD: {cmd}")
+#        logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'push data')
         master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
         cmd = f"rm {tracker['tmpfile']}"
@@ -269,45 +261,19 @@ def get_ssh_credential(nels_id: int):
         raise Exception("HTTP response code=%s" % str(response.status_code))
 
 
+def do_work(ch, method, properties, body):
 
-
-def ack_message(ch, delivery_tag):
-    """Note that `ch` must be the same pika channel instance via which
-    the message being ACKed was retrieved (AMQP protocol constraint).
-    """
-    if ch.is_open:
-        ch.basic_ack(delivery_tag)
-    else:
-        # Channel is already closed, so we can't ACK this message;
-        # log and/or do something that makes sense for your app in this case.
-        pass
-
-
-def on_message(ch, method_frame, _header_frame, body, args):
-    (conn, thrds) = args
-    delivery_tag = method_frame.delivery_tag
-    t = threading.Thread(target=do_work, args=(conn, ch, delivery_tag, body))
-    t.start()
-    thrds.append(t)
-
-
-def do_work(conn, ch, delivery_tag, body):
-    thread_id = threading.get_ident()
-    print("Thread id: %s Delivery tag: %s Message body: %s\n" % ( thread_id,
-                delivery_tag, body))
+    print("Call back ! Method %s Delivery tag: %s Message body: %s\n" % ( method, properties, body))
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
     try:
         payload = json.loads(body)
     except Exception as e:
         print( e )
-        cb = functools.partial(ack_message, ch, delivery_tag)
-        conn.add_callback_threadsafe(cb)
         return
 
     if "tracker_id" not in payload:
-        cb = functools.partial(ack_message, ch, delivery_tag)
-        conn.add_callback_threadsafe(cb)
         raise Exception(f"Invalid message {payload}")
         return
 
@@ -337,12 +303,6 @@ def do_work(conn, ch, delivery_tag, body):
 
         print( traceback.print_tb(e.__traceback__) )
 
-#        cb = functools.partial(ack_message, ch, delivery_tag)
-#        conn.add_callback_threadsafe(cb)
-
-
-    cb = functools.partial(ack_message, ch, delivery_tag)
-    conn.add_callback_threadsafe(cb)
 
 
 def main():
@@ -350,13 +310,11 @@ def main():
     parser = argparse.ArgumentParser(description='consumes a mq ')
 
     parser.add_argument('-c', '--config', required=True, help="conductor config file ", default="conductor.yml")
-    parser.add_argument('-T', '--threads', default=5, help="number of theads to run with")
     parser.add_argument('-l', '--logfile', default=None, help="Logfile to write to, default is stdout")
     parser.add_argument('-v', '--verbose', default=4, action="count", help="Increase the verbosity of logging output")
 
     args = parser.parse_args()
 
-#    config = config_utils.readin_config_file( args.config )
     config = init( args.config )
 
 
@@ -374,28 +332,16 @@ def main():
 
 
     global mq
-    # prefetch  translates to thread count!
-    mq = mq_utils.Mq()
-    mq.connect(uri=config['mq_uri'], prefetch_count=int(args.threads))
-#    mq.channel_qos(prefetch_count=int(args.threads))
-    #mq.channel.basic_qos(prefetch_count=int(args.threads))
-
-    threads = []
-    on_message_callback = functools.partial(on_message, args=(mq.connection, threads))
-
+    mq.connect(uri=config['mq_uri'], prefetch_count=1)
 
     try:
-        mq.consume(route='default', callback=on_message_callback)
-#        rmq.consume(route='default, callback=callback')
+        mq.consume(route='default', callback=do_work)
 
     except KeyboardInterrupt:
         mq.channel.stop_consuming()
 
     # Wait for all to complete
     logger.debug('waiting for threads')
-    for thread in threads:
-        thread.join()
-
     mq.channel.close()
 
 
