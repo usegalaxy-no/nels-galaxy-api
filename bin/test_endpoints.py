@@ -9,9 +9,13 @@ sys.path.append(".")
 
 import kbr.config_utils as config_utils
 import kbr.log_utils as logger
+import kbr.version_utils as version_utils
 
 
 import nels_galaxy_api.api_requests as api_requests
+
+version = version_utils.as_string()
+
 
 
 def main():
@@ -28,7 +32,7 @@ def main():
 
     config = config_utils.readin_config_file( args.config_file)
 
-    logger.init(name='nels-galaxy-endpoints')
+    logger.init(name=f'nels-galaxy-endpoints (v: {version})')
 
     local_api = api_requests.ApiRequests(base_url=f"http://localhost:{config['port']}", token=config['key'])
     proxy_api = api_requests.ApiRequests(base_url=config['master_url'].rstrip("/"), token=config['proxy_key'])

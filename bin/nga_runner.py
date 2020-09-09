@@ -315,7 +315,7 @@ def main():
         logger.init(name='nga_runner')
 
     logger.set_log_level(args.verbose)
-    logger.info(f'startup {version}')
+    logger.info(f'startup (v:{version})')
 
 
     api_requests.set_token( config['key'])

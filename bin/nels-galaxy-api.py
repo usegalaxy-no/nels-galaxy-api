@@ -25,7 +25,7 @@ import nels_galaxy_api.utils as utils
 import nels_galaxy_api.states as states
 import nels_galaxy_api.api_requests as api_requests
 
-version = '0.0.0'
+version = version_utils.as_string()
 DEV = False
 
 db = nels_galaxy_db.DB()
@@ -43,7 +43,9 @@ instances = None
 tos_grace_period = None
 # galaxy_config = None
 no_proxy = False  # The NGA-master does not need to use the proxy connections.
-mq = None
+mq = mq_utils.Mq()
+
+
 
 class GalaxyHandler(tornado.BaseHandler):
     def get_tos(self):
@@ -155,10 +157,8 @@ def init(config_file: dict) -> None:
 
 
 
-    global version, mq
-    mq = mq_utils.Mq()
+#    global mq
     mq.connect(uri=config['mq_uri'])
-    version = version_utils.as_string()
 
     return config
 
@@ -704,7 +704,7 @@ def main():
         logger.init(name='nels-galaxy-api')
 
     logger.set_log_level(args.verbose)
-    logger.info('startup')
+    logger.info(f'startup nels_galaxy_api (v:{version})')
 
     config = init(args.config_file)
 
