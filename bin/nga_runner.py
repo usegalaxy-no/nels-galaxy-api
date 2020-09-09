@@ -69,12 +69,6 @@ def init( config_file) -> {}:
     sleep_time = config.get('sleep_time', sleep_time)
 
 
-
-
-#    mq = mq_utils.Mq()
-#    mq.connect(uri=config['mq_uri'])
-
-
     tmp_instances = config['instances']
 
     for iid in tmp_instances:
@@ -120,7 +114,6 @@ def run_cmd(cmd:str, name:str=None, verbose:bool=False):
 def run_history_export( tracker ):
 
     logger.debug('run_history_export')
-    logger.debug(f'..... {tracker}')
 
     instance = tracker['instance']
     print( instance )
@@ -187,7 +180,6 @@ def run_fetch_export(tracker):
         cmd = f"curl -H 'Authorization: bearer {instances[instance]['nga_key']}' -Lo {outfile} {instances[instance]['nga_url']}/history/download/{export_id}/"
         logger.debug(f'fetch-cmd: {cmd}')
         run_cmd(cmd)
-        time.sleep(60)
         logger.debug('Done fetch cmd')
         submit_mq_job(tracker_id)
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
@@ -263,7 +255,7 @@ def get_ssh_credential(nels_id: int):
 
 def do_work(ch, method, properties, body):
 
-    print("Call back ! Method %s Delivery tag: %s Message body: %s\n" % ( method, properties, body))
+    logger.debug("Callback call::: Method %s Delivery tag: %s Message body: %s\n" % ( method, properties, body))
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
@@ -290,7 +282,6 @@ def do_work(ch, method, properties, body):
             run_history_export( tracker )
 
         elif state == 'ok':
-            logger.debug('run_fetch_export')
             run_fetch_export( tracker )
 
         elif state == 'fetch-ok':
@@ -341,7 +332,7 @@ def main():
         mq.channel.stop_consuming()
 
     # Wait for all to complete
-    logger.debug('waiting for threads')
+ #   logger.debug('waiting for threads')
     mq.channel.close()
 
 
