@@ -416,10 +416,60 @@ def restate_job(config:{}, commands=[]):
     config['master_api'].update_export(job_id, {'state':state})
 
 
+def list_galaxy_info(config, commands):
+
+    if len(commands) == 0:
+        commands.append( 'help')
+
+    sub_command = commands.pop(0)
+
+    if sub_command == 'users':
+        get_users(config, args_utils.get_or_default(commands, None))
+        return
+    elif sub_command == 'histories':
+        get_histories(config, instance_name=args_utils.get_or_default(commands, None),
+                  user_email=args_utils.get_or_default(commands, None))
+        return
+    elif sub_command == 'exports':
+        get_exports(config, instance_name=args_utils.get_or_default(commands, None),
+                    user_email=args_utils.get_or_default(commands, None))
+        return
+    else:
+        if sub_command != 'help':
+            print( f"Error: Unknown command '{sub_command}'\n")
+
+        print("Help:")
+        print("==========================")
+        print("list: users [instance] ")
+        print("list: histories [instance] [user]")
+        print("list: exports [instance] [user]")
+
+
+def utils(config, command):
+    if len(commands) == 0:
+        commands.append( 'help')
+
+    sub_command = commands.pop(0)
+
+    if sub_command == 'users':
+        get_users(config, args_utils.get_or_default(commands, None))
+        return
+    else:
+        if sub_command != 'help':
+            print( f"Error: Unknown command '{sub_command}'\n")
+
+        print("Help:")
+        print("==========================")
+        print("utils: tmpfiles [list]")
+        print("utils: tmpfiles del")
+        print("utils: errors ")
+        print("utils: errors email [email add, otherwise instance admin]")
+        print("utils: exports [instance] [user]")
+
 
 def main():
 
-    commands = ['ping', 'instance', 'users', 'histories', 'exports', 'requests', 'queue', 'queue', 'restate', 'help']
+    commands = ['ping', 'list', 'requests', 'help']
 
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
@@ -441,28 +491,21 @@ def main():
 
     config = init( args.config)
 
-    args_utils.min_count(1, len(args.command), msg="tos_cli takes one of the following commands: {}".format(string_utils.comma_sep(commands)))
+    args_utils.min_count(1, len(args.command), msg="nga-cli takes one of the following commands: {}".format(string_utils.comma_sep(commands)))
 
 
     command = args.command.pop(0)
-
     if command == 'ping':
         ping_hosts( config )
         sys.exit()
         sys.exit()
-    elif command == 'users':
-        get_users(config, args_utils.get_or_default(args.command, None))
-        sys.exit()
-    elif command == 'histories':
-        get_histories(config, instance_name=args_utils.get_or_default(args.command, None),
-                              user_email=args_utils.get_or_default(args.command, None))
-        sys.exit()
-    elif command == 'exports':
-        get_exports(config, instance_name=args_utils.get_or_default(args.command, None),
-                            user_email=args_utils.get_or_default(args.command, None))
-        sys.exit()
+    elif command == 'list':
+        list_galaxy_info(config, args.command)
     elif command == 'requests':
         get_requests(config, args.command)
+        sys.exit()
+    elif command == 'requests':
+        utils(config, args.command)
         sys.exit()
 
     else:
