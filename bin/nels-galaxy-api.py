@@ -672,7 +672,7 @@ class ExportsList(Export):
         if user is not None and user != 'all':
             filter['user_email'] = user
 
-        pp.pprint( filter )
+#        pp.pprint( filter )
 
         exports = utils.encrypt_ids(db.get_export_trackings(**filter))
         self.send_response(data=exports)
@@ -761,7 +761,12 @@ def main():
         logger.info( f"TEST STATE ID: {sid}")
 
     logger.info(f"Running on port: {config.get('port', 8008)}")
-    tornado.run_app(urls, port=config.get('port', 8008))
+    try:
+        tornado.run_app(urls, port=config.get('port', 8008))
+    except KeyboardInterrupt:
+        logger.info(f'stopping nels_galaxy_api')
+
+
 
 
 if __name__ == "__main__":
