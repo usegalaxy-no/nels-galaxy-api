@@ -395,11 +395,14 @@ def main():
 
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
-    parser.add_argument('-c', '--config', required=True, help="NGA config file")
+    parser.add_argument('-c', '--config',  help="NGA config file, or set env NGA_CONF", default=args_utils.get_env_var('NGA_CONF'))
     parser.add_argument('-v', '--verbose', default=False, action="store_true",  help="Verbose output")
     parser.add_argument('command', nargs='*', help="{}".format(",".join(commands)))
 
     args = parser.parse_args()
+    if args.config is None:
+        parser.print_usage()
+        sys.exit( 1 )
 
     logger.init(name='nga_cli')
 
