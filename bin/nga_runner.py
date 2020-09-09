@@ -113,7 +113,7 @@ def run_cmd(cmd:str, name:str=None, verbose:bool=False):
 
 def run_history_export( tracker ):
 
-    logger.debug('run_history_export')
+    logger.info(f'{tracker["id"]}: history export start')
 
     instance = tracker['instance']
     print( instance )
@@ -126,12 +126,12 @@ def run_history_export( tracker ):
             return
     except Exception as e:
         traceback.print_tb(e.__traceback__)
-        print( f"Fetch info error {e}")
+        logger.error( f"{tracker['id']}: Fetch info error {e}")
 
     try:
         galaxy_instance = GalaxyInstance(instances[instance]['url'], key=instances[instance]['api_key'])
     except Exception as e :
-        logger.error(f"Trigger export through bioblend: {e}")
+        logger.error(f"{tracker['id']}: Trigger export through bioblend: {e}")
         master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
         return
 
@@ -139,7 +139,7 @@ def run_history_export( tracker ):
         try:
             export_id = galaxy_instance.histories.export_history(tracker['history_id'], maxwait=1, gzip=True)
         except Exception as e:
-            logger.error(f"bioblend trigger export {e}")
+            logger.error(f"{tracker['id']}/{tracker['instance']}: bioblend trigger export {e}")
             master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
             return
 
@@ -150,7 +150,7 @@ def run_history_export( tracker ):
             if history is not None and history != '':
                 master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
-                logger.error(f"No history id associated with {export_id}")
+                logger.error(f"{tracker['id']}: No history id associated with {export_id}")
         else:
 #            print( f" API :: {instance['api']}" )
             export = instances[instance]['api'].get_history_export(export_id=export_id)
@@ -158,6 +158,8 @@ def run_history_export( tracker ):
 
             if export['state'] in ['ok', 'error']:
                 submit_mq_job(tracker['id'])
+                logger.info(f'{tracker["id"]}: history export done')
+
                 return
 
             break
@@ -166,7 +168,7 @@ def run_history_export( tracker ):
 
 def run_fetch_export(tracker):
 
-    logger.debug('run_fetch_export')
+    logger.info(f'{tracker["id"]}: fetch export start')
 
     export_id = tracker['export_id']
     tracker_id = tracker['id']
@@ -178,23 +180,25 @@ def run_fetch_export(tracker):
     try:
 
         cmd = f"curl -H 'Authorization: bearer {instances[instance]['nga_key']}' -Lo {outfile} {instances[instance]['nga_url']}/history/download/{export_id}/"
-        logger.debug(f'fetch-cmd: {cmd}')
+        logger.debug(f'{tracker["id"]}: fetch-cmd: {cmd}')
         run_cmd(cmd)
-        logger.debug('Done fetch cmd')
+        logger.debug('{tracker["id"]}: fetch cmd done')
         submit_mq_job(tracker_id)
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
 
     except Exception as e:
-        master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-error'})
-        logger.debug(f" {tracker['id']} fetch error: {e}")
+        master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-error', 'log': str(e)})
+        logger.error(f"{tracker['id']} fetch error: {e}")
+
+    logger.info(f'{tracker["id"]}: fetch export done')
 
     return
 
 
 def run_push_export( tracker ):
 
-    logger.debug(f'run_push_export {tracker}')
     tracker_id = tracker['id']
+    logger.info(f'{tracker_id}: push export start')
 
     try:
 
@@ -203,17 +207,17 @@ def run_push_export( tracker ):
         master_api.update_export(tracker_id, {'state': 'nels-transfer-running'})
 
         history = instances[instance]['api'].get_history_export(export_id=tracker['export_id'])
-        logger.debug( f"history: {history}")
+        logger.debug( f"{tracker_id} history: {history}")
         create_time = str(tracker['create_time']).replace("-", "").replace(":", "").replace(" ", "_")
-        logger.debug( f'Create time {create_time}')
+#        logger.debug( f'{tracker_id} Create time {create_time}')
         create_time = re.sub(r'\.\d+', '', create_time)
-        logger.debug( f'Create time {create_time}')
+#        logger.debug( f'{tracker_id} Create time {create_time}')
         history['name'] = history['name'].replace(" ", "_")
         dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
-        logger.debug(f"dest file: {dest_file}")
+        logger.debug(f"{tracker_id} dest file: {dest_file}")
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
-        logger.debug(f"ssh info {ssh_info}")
+        logger.debug(f"{tracker_id} ssh info {ssh_info}")
 
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"'
 #        logger.debug(f"CMD: {cmd}")
@@ -223,6 +227,7 @@ def run_push_export( tracker ):
         master_api.update_export(tracker_id, {'state': 'finished'})
         logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'cleanup')
+        logger.info(f'{tracker_id}: push export done')
     except Exception as e:
         import traceback
         traceback.print_tb(e.__traceback__)
@@ -239,7 +244,7 @@ def get_ssh_credential(nels_id: int):
     #    api_url = 'https://test-fe.cbu.uib.no/nels-'
 
     api_url = nels_storage_url + "/users/" + nels_id
-    logger.debug(f"API URL: {api_url}")
+#    logger.debug(f"API URL: {api_url}")
     response = requests.get(api_url, auth=(nels_storage_client_key, nels_storage_client_secret))
     if (response.status_code == requests.codes.ok):
         json_response = response.json()
@@ -272,28 +277,18 @@ def do_work(ch, method, properties, body):
     tracker_id = payload['tracker_id']
     tracker = master_api.get_export( tracker_id )
 
-    try:
+    state = tracker['state']
 
-        state = tracker['state']
+    logger.debug(f"do_work tracker_id: {tracker_id} state: '{state}'")
 
-        logger.info(f"State: '{state}'")
-
-        if state == 'pre-queueing':
-            run_history_export( tracker )
-
-        elif state == 'ok':
-            run_fetch_export( tracker )
-
-        elif state == 'fetch-ok':
-            run_push_export( tracker )
-        else:
-            raise Exception(f"Unknown state {state} for tracker_id: {tracker_id}")
-
-    except Exception as e:
-        logger.error(f"Error in state selector: {e}")
-
-        print( traceback.print_tb(e.__traceback__) )
-
+    if state == 'pre-queueing':
+        run_history_export( tracker )
+    elif state == 'ok':
+        run_fetch_export( tracker )
+    elif state == 'fetch-ok':
+        run_push_export( tracker )
+    else:
+        logger.error("Unknown state {state} for tracker_id: {tracker_id}")
 
 
 def main():
