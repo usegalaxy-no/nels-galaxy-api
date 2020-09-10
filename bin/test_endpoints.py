@@ -64,15 +64,14 @@ def main():
 
     print('Histories & exports:')
     histories_total = 0
-    exports_total = 0
+    exports_total   = 0
     for user in users:
         histories = local_api.get_user_histories( user['email'] )
         histories_total += len(histories)
         exports = local_api.get_user_history_exports( user['email'] )
         exports_total += len(exports)
-#        if len(exports):
-#            print(exports)
-        print( f"{user['email']:30} has {len(histories):2} histories and {len(exports):2} exports")
+        if args.full:
+            print( f"{user['email']:30} has {len(histories):2} histories and {len(exports):2} exports")
 
     print( f"\n{histories_total} histories and {exports_total} exports in the database")
     print("===============================\n")
