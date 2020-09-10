@@ -110,7 +110,7 @@ def ping_hosts( config:{}):
             gi.histories.hl = gi.histories.get_histories()
             ping['bioblend'] = True
         except Exception as e:
-            logger.error(f'Could not fetch all information for {instance["name"]}: {e}')
+            logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
             pass
 
         pings.append( ping)
@@ -512,7 +512,7 @@ def list_tmpfiles(config, commands):
                     print( f"deleting file {request['tmpfile']}")
                     os.unlink(request['tmpfile'])
 
-    if not delete_files:
+    if not delete_files and len(tfiles) > 1:
         print(tabulate( tfiles, headers="firstrow", tablefmt="psql" ))
 
 
@@ -541,10 +541,10 @@ def utils(config, commands):
         print("utils: tmpfiles del")
         print("utils: errors <1d, 2h>")
         print("utils: errors email [email add] <1d, 2h>")
-        print("utils: exports [instance] [user]")
+#        print("utils: exports [instance] [user]")
 
 
-def export(config, command):
+def export(config, commands):
     if len(commands) == 0:
         commands.append( 'help')
 
@@ -565,7 +565,7 @@ def export(config, command):
 
 def main():
 
-    commands = ['ping', 'list', 'requests', 'export', 'help']
+    commands = ['ping', 'list', 'requests', 'utils', 'help']
 
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
