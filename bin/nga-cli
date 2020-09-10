@@ -510,7 +510,7 @@ def list_tmpfiles(config, commands):
                 tfiles.append([ request['tmpfile'], file_utils.size( request['tmpfile'] ), request['state'] ])
                 if verbose:
                     print( f"deleting file {request['tmpfile']}")
-                    os.unlink(request['tmpfile'])
+                os.unlink(request['tmpfile'])
 
     if not delete_files and len(tfiles) > 1:
         print(tabulate( tfiles, headers="firstrow", tablefmt="psql" ))
