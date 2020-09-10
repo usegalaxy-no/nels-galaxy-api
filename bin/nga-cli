@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import re
 
 import pprint as pp
 import sys
+
+from kbr import file_utils
 from tabulate import tabulate
 import json
+import time
 
 from bioblend.galaxy import GalaxyInstance
 
@@ -18,9 +22,8 @@ import kbr.mq_utils as mq_utils
 import kbr.version_utils as version_utils
 import kbr.args_utils as args_utils
 import kbr.string_utils as string_utils
-
-from bioblend.galaxy import GalaxyInstance
-
+import kbr.timedate_utils as timedate_utils
+import kbr.email_utils as email_utils
 
 import nels_galaxy_api.api_requests as api_requests
 
@@ -33,7 +36,7 @@ mq = mq_utils.Mq()
 def readable_date(timestamp:str) -> str:
 
     if timestamp is None:
-        return timestamp
+        return None
 
     timestamp = timestamp.replace('T', ' ')
     timestamp = re.sub(r'\.\d+', '', timestamp)
@@ -445,7 +448,103 @@ def list_galaxy_info(config, commands):
         print("list: exports [instance] [user]")
 
 
-def utils(config, command):
+def nga_errors(config, commands):
+    email = None
+    if len(commands) and commands[0] == 'email':
+        commands.pop(0)
+        email = args_utils.get_or_fail(commands, 'email not provided')
+
+    timerange = args_utils.get_or_default(commands, "")
+    time_delta = 0
+    if timerange != "":
+        try:
+            g = re.match(r'(\d+)([hd])', timerange)
+            num, range = g.groups(0)
+            ts = time.time()
+            if range == 'h':
+                time_delta = ts - 3600*int(num)
+            elif range == 'd':
+                time_delta = ts - 24*3600*int(num)
+        except Exception as e:
+            print( f"timerange {timerange} is invalid eg: 1d 2h  ")
+            sys.exit(1)
+
+
+    errors = [['id', 'instance','user','state','update time']]
+
+    for request in config['master_api'].get_exports():
+        if 'error' in request['state']:
+            update_time = timedate_utils.datestr_to_ts(request['update_time'])
+            update_time = timedate_utils.to_sec_since_epoch( update_time)
+
+            if time_delta:
+                if time_delta <= update_time:
+                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['update_time']) ])
+            else:
+                errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['update_time'] )])
+
+    if len(errors) > 1:
+        errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
+        if email is not None and errors != "":
+            email_utils.send_email("admin@usegalaxy.no",
+                                   email,
+                                   f"[NGA-ERRORs: list of errors from the last {timerange}",
+                                   errors, )
+        else:
+            print(errors)
+
+
+def list_tmpfiles(config, commands):
+    delete_files = False
+    if len(commands) and commands[0] == 'del':
+        commands.pop(0)
+        delete_files = True
+
+    del_states = commands
+
+    tfiles = [["filename", "size", "state"]]
+
+    for request in config['master_api'].get_exports():
+        if request['tmpfile'] and os.path.isfile(request['tmpfile']):
+            if not del_states or (del_states and request['state'] in del_states):
+                tfiles.append([ request['tmpfile'], file_utils.size( request['tmpfile'] ), request['state'] ])
+                if verbose:
+                    print( f"deleting file {request['tmpfile']}")
+                    os.unlink(request['tmpfile'])
+
+    if not delete_files:
+        print(tabulate( tfiles, headers="firstrow", tablefmt="psql" ))
+
+
+
+def utils(config, commands):
+
+    if len(commands) == 0:
+        commands.append( 'help')
+
+
+    sub_command = commands.pop(0)
+
+    if sub_command == 'tmpfiles':
+        list_tmpfiles(config, commands)
+        return
+    elif sub_command == 'errors':
+        nga_errors(config, commands)
+        return
+    else:
+        if sub_command != 'help':
+            print( f"Error: Unknown command '{sub_command}'\n")
+
+        print("Help:")
+        print("==========================")
+        print("utils: tmpfiles")
+        print("utils: tmpfiles del")
+        print("utils: errors <1d, 2h>")
+        print("utils: errors email [email add] <1d, 2h>")
+        print("utils: exports [instance] [user]")
+
+
+def export(config, command):
     if len(commands) == 0:
         commands.append( 'help')
 
@@ -460,16 +559,13 @@ def utils(config, command):
 
         print("Help:")
         print("==========================")
-        print("utils: tmpfiles [list]")
-        print("utils: tmpfiles del")
-        print("utils: errors ")
-        print("utils: errors email [email add, otherwise instance admin]")
-        print("utils: exports [instance] [user]")
+        print("export: single [nels-id] [user-email] [instance] [history-id]")
+        print("export: user [nels-id] [user-email] <instance> Instance can be: all>")
 
 
 def main():
 
-    commands = ['ping', 'list', 'requests', 'help']
+    commands = ['ping', 'list', 'requests', 'export', 'help']
 
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
@@ -504,8 +600,11 @@ def main():
     elif command == 'requests':
         get_requests(config, args.command)
         sys.exit()
-    elif command == 'requests':
+    elif command == 'utils':
         utils(config, args.command)
+        sys.exit()
+    elif command == 'export':
+        export(config, args.command)
         sys.exit()
 
     else:
