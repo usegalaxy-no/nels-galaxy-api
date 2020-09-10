@@ -132,6 +132,8 @@ def init(config_file: dict) -> None:
         db.create_export_tracking_table()
         db.create_export_tracking_logs_table()
 
+        mq.connect(uri=config['mq_uri'])
+
         global proxy_keys, instances, no_proxy
         proxy_keys = {}
         instances = {}
@@ -158,7 +160,6 @@ def init(config_file: dict) -> None:
 
 
 #    global mq
-    mq.connect(uri=config['mq_uri'])
 
     return config
 
