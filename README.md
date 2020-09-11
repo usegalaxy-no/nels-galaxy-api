@@ -221,6 +221,12 @@ nohup ./bin/nels-galaxy-api.py -c nels-galaxy.yml -l nels-galaxy.log &
 This will run the server in the background and write to a log named nels-galaxy.log in the current directory
 
 
+Some problems with the certs used by uio (at least in test) To add the root-cert (might need to be updated later)
+
+``` 
+./bin/patch_certfile.py invivo.hpc.uio.no TERENA_SSL_CA_3.pem  
+```
+
 
 ## Upgrade the nels-galaxy-api
 
