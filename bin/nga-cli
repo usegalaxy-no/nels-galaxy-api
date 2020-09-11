@@ -406,7 +406,6 @@ def requeue_job(config:{}, commands=[]):
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state  = args_utils.get_or_fail(commands, "New job state is required" )
 
-    print( f'{job_id} 00>> {state}')
 
     tracker = config['master_api'].requeue_export( job_id, {'state':state})
 
