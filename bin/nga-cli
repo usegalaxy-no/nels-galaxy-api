@@ -3,7 +3,6 @@
 import argparse
 import os
 import re
-
 import pprint as pp
 import sys
 
@@ -103,15 +102,21 @@ def ping_hosts( config:{}):
             ping['api-version'] = base_info['version']
             ping['reachable'] = True
             disk_info = instance['api'].get_info()
-#            print( disk_info )
             ping['disk free'] = f"{disk_info['perc_free']:>3.2f}% ({disk_info['free_gb']:>7.2f} GB)"
             ping['secure reachable'] = True
+        except Exception as e:
+            print(e)
+            logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
+
+        try:
             gi = GalaxyInstance(instance['url'], key=instance['api_key'])
             gi.histories.hl = gi.histories.get_histories()
             ping['bioblend'] = True
         except Exception as e:
+#            print(e )
             logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
-            pass
+
+
 
         pings.append( ping)
 
@@ -282,7 +287,7 @@ def list_requests(config:{}, user:str=None, instance:str=None):
         requests = config['master_api'].get_user_instance_exports(user, instance)
 
     elif instance is not None:
-            requests = config['master_api'].get_instance_exports(instance)
+        requests = config['master_api'].get_instance_exports(instance)
     elif user is not None:
         requests = config['master_api'].get_user_exports(user)
     else:
@@ -431,7 +436,7 @@ def list_galaxy_info(config, commands):
         return
     elif sub_command == 'histories':
         get_histories(config, instance_name=args_utils.get_or_default(commands, None),
-                  user_email=args_utils.get_or_default(commands, None))
+                              user_email=args_utils.get_or_default(commands, None))
         return
     elif sub_command == 'exports':
         get_exports(config, instance_name=args_utils.get_or_default(commands, None),
@@ -570,15 +575,22 @@ def main():
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
     parser.add_argument('-c', '--config',  help="NGA config file, or set env NGA_CONF", default=args_utils.get_env_var('NGA_CONF'))
-    parser.add_argument('-v', '--verbose', default=False, action="store_true",  help="Verbose output")
+#    parser.add_argument('-v', '--verbose', default=False, action="store_true",  help="Verbose output")
+    parser.add_argument('-v', '--verbose', default=0, action="count", help="Increase the verbosity of logging output")
     parser.add_argument('command', nargs='*', help="{}".format(",".join(commands)))
 
+
+
     args = parser.parse_args()
+
+    logger.init(name=f'nga_cli')
+    logger.set_log_level(args.verbose)
+    logger.info(f'nga-cli (v:{version})')
+
     if args.config is None:
         parser.print_usage()
         sys.exit( 1 )
 
-    logger.init(name='nga_cli')
 
     global verbose
     verbose = args.verbose

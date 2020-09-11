@@ -24,6 +24,8 @@ import nels_galaxy_api.db as nels_galaxy_db
 import nels_galaxy_api.utils as utils
 import nels_galaxy_api.states as states
 import nels_galaxy_api.api_requests as api_requests
+import warnings
+warnings.simplefilter("ignore")
 
 version = version_utils.as_string()
 DEV = False
@@ -151,7 +153,7 @@ def init(config_file: dict) -> None:
             instance = tmp_instances[iid]
 
             instances[instance['name']] = instance
-            instances[instance['name']]['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'])
+            instances[instance['name']]['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'], validate=instance.get('validate', True))
             if instance['proxy_key'] in proxy_keys.keys():
                 logger.warn(f"Proxy key for {instance['name']} is also used for {proxy_keys[instance['proxy_key']]}")
 
