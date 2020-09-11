@@ -5,6 +5,7 @@ import os
 import re
 import pprint as pp
 import sys
+import certifi
 
 from kbr import file_utils
 from tabulate import tabulate
@@ -105,11 +106,12 @@ def ping_hosts( config:{}):
             ping['disk free'] = f"{disk_info['perc_free']:>3.2f}% ({disk_info['free_gb']:>7.2f} GB)"
             ping['secure reachable'] = True
         except Exception as e:
-            print(e)
-            logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
+#            print(e)
+ #           logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
+            pass
 
         try:
-            gi = GalaxyInstance(instance['url'], key=instance['api_key'])
+            gi = GalaxyInstance(instance['url'], key=instance['api_key'], verify=certifi.where())
             gi.histories.hl = gi.histories.get_histories()
             ping['bioblend'] = True
         except Exception as e:
@@ -375,9 +377,6 @@ def queue_job(config:{}, commands=[]):
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state = args_utils.get_or_default(commands, None )
 
-    print( f'{job_id} 00>> {state}')
-
-    print( f'{job_id} 00>> {state}')
 
     tracker = config['master_api'].get_export( job_id)
     if tracker is None:
@@ -498,6 +497,75 @@ def nga_errors(config, commands):
         else:
             print(errors)
 
+def nga_stuck_jobs(config, commands):
+
+    timerange = args_utils.get_or_default(commands, "")
+    time_delta = 0
+    if timerange != "":
+        try:
+            g = re.match(r'(\d+)([hd])', timerange)
+            num, range = g.groups(0)
+            ts = time.time()
+            if range == 'h':
+                time_delta = ts - 3600*int(num)
+            elif range == 'd':
+                time_delta = ts - 24*3600*int(num)
+        except Exception as e:
+            print( f"timerange {timerange} is invalid eg: 1d 2h  ")
+            sys.exit(1)
+
+    errors = [['id', 'instance','user','state','create time']]
+
+    for request in config['master_api'].get_exports():
+        if request['update_time'] == '' or request['update_time'] is None:
+            create_time = timedate_utils.datestr_to_ts(request['create_time'])
+            create_time = timedate_utils.to_sec_since_epoch( create_time)
+
+#            print( request )
+
+            if time_delta:
+                if time_delta <= create_time:
+                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['create_time']) ])
+            else:
+                errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['create_time'] )])
+
+    if len(errors) > 1:
+        errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
+        print(errors)
+
+def nga_unstick_jobs(config, commands):
+
+    timerange = args_utils.get_or_default(commands, "")
+    time_delta = 0
+    if timerange != "":
+        try:
+            g = re.match(r'(\d+)([hd])', timerange)
+            num, range = g.groups(0)
+            ts = time.time()
+            if range == 'h':
+                time_delta = ts - 3600*int(num)
+            elif range == 'd':
+                time_delta = ts - 24*3600*int(num)
+        except Exception as e:
+            print( f"timerange {timerange} is invalid eg: 1d 2h  ")
+            sys.exit(1)
+
+
+    for request in config['master_api'].get_exports():
+        if request['update_time'] == '' or request['update_time'] is None:
+            create_time = timedate_utils.datestr_to_ts(request['create_time'])
+            create_time = timedate_utils.to_sec_since_epoch( create_time)
+
+            if time_delta:
+                if time_delta <= create_time:
+                    queue_job(config,  [request['id']])
+                    if verbose:
+                        print(f"Unstuck job {request['id']} for {request['user_email']} on {request['instance']}")
+            else:
+                queue_job(config,  [request['id']])
+                if verbose:
+                    print(f"Unstuck job {request['id']} for {request['user_email']} on {request['instance']}")
+
 
 def list_tmpfiles(config, commands):
     delete_files = False
@@ -536,6 +604,19 @@ def utils(config, commands):
     elif sub_command == 'errors':
         nga_errors(config, commands)
         return
+    elif sub_command == 'stuck':
+        nga_stuck_jobs(config, commands)
+        return
+    elif sub_command == 'unstick':
+        nga_unstick_jobs(config, commands)
+        return
+    elif sub_command == 'queue-flush':
+        mq.flush()
+        return
+    elif sub_command == 'queue-size':
+        print(f"Currently {mq.queue_length('default')} messages in the MQueue")
+        return
+
     else:
         if sub_command != 'help':
             print( f"Error: Unknown command '{sub_command}'\n")
@@ -544,8 +625,11 @@ def utils(config, commands):
         print("==========================")
         print("utils: tmpfiles")
         print("utils: tmpfiles del")
+        print("utils: stuck <1d, 2h>")
         print("utils: errors <1d, 2h>")
         print("utils: errors email [email add] <1d, 2h>")
+        print("utils: queue-flush")
+        print("utils: queue-size")
 #        print("utils: exports [instance] [user]")
 
 
