@@ -134,7 +134,7 @@ def run_history_export( tracker ):
         galaxy_instance = GalaxyInstance(instances[instance]['url'], key=instances[instance]['api_key'], verify=certifi.where())
     except Exception as e :
         logger.error(f"{tracker['id']}: Trigger export through bioblend: {e}")
-        master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
+        master_api.update_export(tracker['id'], {'state': 'bioblend-error'})
         return
 
     while True:
