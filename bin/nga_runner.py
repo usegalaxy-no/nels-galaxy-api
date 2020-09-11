@@ -15,6 +15,8 @@ import tempfile
 import time
 import requests
 import traceback
+import certifi
+
 
 from bioblend.galaxy import GalaxyInstance
 
@@ -129,7 +131,7 @@ def run_history_export( tracker ):
         logger.error( f"{tracker['id']}: Fetch info error {e}")
 
     try:
-        galaxy_instance = GalaxyInstance(instances[instance]['url'], key=instances[instance]['api_key'])
+        galaxy_instance = GalaxyInstance(instances[instance]['url'], key=instances[instance]['api_key'], verify=certifi.where())
     except Exception as e :
         logger.error(f"{tracker['id']}: Trigger export through bioblend: {e}")
         master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
@@ -288,7 +290,7 @@ def do_work(ch, method, properties, body):
     elif state == 'fetch-ok':
         run_push_export( tracker )
     else:
-        logger.error("Unknown state {state} for tracker_id: {tracker_id}")
+        logger.error(f"Unknown state {state} for tracker_id: {tracker_id}")
 
 
 def main():
