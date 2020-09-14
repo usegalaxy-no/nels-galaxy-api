@@ -229,10 +229,39 @@ class Users(GalaxyHandler):
         return self.send_response(data=users)
 
 
+
+class UserApikey(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/user/EMAIL/api-key") # uses session
+
+
+    def get(self, user_email:str=None):
+        logger.debug("get user api-key")
+#        self.check_token()
+        user = db.get_user(email=user_email)
+        if user is None or user == []:
+            return self.send_response_404()
+        print( user )
+        user = user[0]
+        api_key = db.get_api_key( user[ 'id' ])
+        print( api_key )
+        print( api_key )
+
+        if api_key is None or api_key == []:
+            new_key = utils.create_uuid(32)
+            db.add_api_key(user['id'], new_key)
+
+            return self.send_response(data={'key':new_key})
+
+        return self.send_response(data={'key':api_key['key']})
+
+
+
 class UserHistories(GalaxyHandler):
 
     def endpoint(self):
-        return ("/")
+        return ("/user/ID/histories")
 
     def get(self, user_email):
         logger.debug("get user histories")
@@ -687,6 +716,8 @@ class ImportHandler(GalaxyHandler):
         return ("/import/")
 
 
+
+
 def main():
     parser = argparse.ArgumentParser(description='nels-galaxy-api: extending the functionality of galaxy')
 
@@ -720,6 +751,8 @@ def main():
             (r'/users/?$', Users), #Done
             (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
             (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
+            (r"/user/({email_match})/api-key/?$".format(email_match=string_utils.email_match), UserApikey), # to test
+
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy), # done
