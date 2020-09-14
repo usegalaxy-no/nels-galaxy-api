@@ -169,9 +169,9 @@ def init(config_file: dict) -> None:
     return config
 
 
-def submit_mq_job(tracking_id:int ) -> None:
+def submit_mq_job(tracking_id:int, type:str ) -> None:
 
-    payload = {'tracker_id': tracking_id}
+    payload = {'tracker_id': tracking_id, 'type':type}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -625,7 +625,8 @@ class RequeueExport (GalaxyHandler):
             tracking['log'] = f"requeue export tracker {tracking_id} and changed state to {state}"
             tracking_id = db.add_export_tracking(tracking)
             tracking_id = utils.encrypt_value(tracking_id)
-            submit_mq_job(tracking_id )
+            submit_mq_job(tracking_id, "export")
+
 
             self.send_response_200()
         except Exception as e:
@@ -700,7 +701,7 @@ class Export (GalaxyHandler):
 
             tracking_id = utils.encrypt_value( tracking_id )
 
-            submit_mq_job(tracking_id)
+            submit_mq_job(tracking_id, "export")
 
             logger.info(f"Redirecting to {instances[instance]['url']}")
             self.redirect(instances[instance]['url'])
@@ -740,7 +741,7 @@ class RequeueImport (GalaxyHandler):
             tracking['log'] = f"requeue import tracker {tracking_id} and changed state to {state}"
             tracking_id = db.add_import_tracking(tracking)
             tracking_id = utils.encrypt_value(tracking_id)
-            submit_mq_job(tracking_id )
+            submit_mq_job(tracking_id, "import" )
 
             self.send_response_200()
         except Exception as e:
@@ -777,7 +778,7 @@ class Import (GalaxyHandler):
     def _register_import(self, user_id: int, nels_id: int, source: str):
         logger.debug("registering export")
         tracking = {'user_id': user_id,
-                    'state': 'pre-queueing',
+                    'state': 'pre-fetch',
                     'nels_id': nels_id,
                     'source': source}
 
@@ -805,7 +806,7 @@ class Import (GalaxyHandler):
             user = state[ 'user' ]
             tracking_id = self._register_import(user, nels_id, location)
             tracking_id = utils.encrypt_value( tracking_id )
-            submit_mq_job(tracking_id)
+            submit_mq_job(tracking_id, "import")
             self.redirect(master_url)
 
         except Exception as e:

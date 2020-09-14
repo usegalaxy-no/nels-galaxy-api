@@ -382,9 +382,9 @@ def get_requests(config:{}, commands=[]):
         print("requests: requests requeue ID new-state")
         print("requests: requests restate ID new-state")
 
-def submit_mq_job(tracker_id:int, state:str = None ) -> None:
+def submit_mq_job(tracker_id:int, type:str) -> None:
 
-    payload = {'tracker_id': tracker_id}
+    payload = {'tracker_id': tracker_id, "type":type}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -420,7 +420,7 @@ def queue_job(config:{}, commands=[]):
         state = tracker['state']
 
 #    job_id = config['master_api'].decrypt( job_id )
-    submit_mq_job( tracker_id=job_id, state=state)
+    submit_mq_job( tracker_id=job_id, type="export")
 
 def requeue_job(config:{}, commands=[]):
 

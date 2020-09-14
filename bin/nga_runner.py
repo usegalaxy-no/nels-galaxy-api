@@ -89,9 +89,9 @@ def init( config_file) -> {}:
     return config
 
 
-def submit_mq_job(tracker_id:int ) -> None:
+def submit_mq_job(tracker_id:int, type:str ) -> None:
 
-    payload = {'tracker_id': tracker_id}
+    payload = {'tracker_id': tracker_id, 'type': type}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -159,7 +159,7 @@ def run_history_export( tracker ):
             master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
-                submit_mq_job(tracker['id'])
+                submit_mq_job(tracker['id'], 'export')
                 logger.info(f'{tracker["id"]}: history export done')
 
                 return
@@ -185,7 +185,7 @@ def run_fetch_export(tracker):
         logger.debug(f'{tracker["id"]}: fetch-cmd: {cmd}')
         run_cmd(cmd)
         logger.debug('{tracker["id"]}: fetch cmd done')
-        submit_mq_job(tracker_id)
+        submit_mq_job(tracker_id, "export")
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
 
     except Exception as e:
@@ -278,12 +278,65 @@ def get_history_from_nels( tracker ):
         #        logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'pull data')
         master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
-        user = db.get_user()
-        user_api_key = db.get_api_key(user['id'])
-        galaxy_instance = GalaxyInstance(instances[instance]['url'], key=user_api_key['key'], verify=certifi.where())
+        submit_mq_job(tracker_id, "import")
+    except Exception as e:
+        import traceback
+        traceback.print_tb(e.__traceback__)
+
+        master_api.update_export(tracker_id, {'state': 'nels-transfer-error'})
+        logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
+
+def import_history( tracker ):
+
+    tracker_id = tracker['id']
+    logger.info(f'{tracker_id}: import started')
+
+    try:
+
+
+        user_id = tracker['user_id']
+        user_api_key = db.get_api_key(user_id)
+        galaxy_instance = GalaxyInstance(master_url, key=user_api_key['key'], verify=certifi.where())
+
         galaxy_instance.histories.import_history( tmp_file)
-        master_api.update_export(tracker_id, {'state': 'history-import'})
+        master_api.update_export(tracker_id, {'state': 'history-import-triggered'})
         # track job!
+
+        while True:
+
+            try:
+                import_id = galaxy_instance.histories.import_history( tmp_file)
+            except Exception as e:
+                logger.error(f"{tracker['id']}/{tracker['instance']}: bioblend trigger export {e}")
+                master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
+                return
+
+            print( import_id )
+
+            #
+            # if import_id is None or export_id == '':
+            #     history = instances[instance]['api'].get_history_export(history_id=tracker['history_id'])
+            #
+            #     if history is not None and history != '':
+            #         master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
+            #     else:
+            #         logger.error(f"{tracker['id']}: No history id associated with {export_id}")
+            # else:
+            #     #            print( f" API :: {instance['api']}" )
+            #     import = instances[instance]['api'].get_history_export(export_id=export_id)
+            #     master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
+            #
+            #     if export['state'] in ['ok', 'error']:
+            #     submit_mq_job(tracker['id'])
+            #     logger.info(f'{tracker["id"]}: history export done')
+            #
+            #     return
+
+            break
+
+        time.sleep( sleep_time )
+
+
 
         # clean up!
         cmd = f"rm {tracker['tmpfile']}"
@@ -312,23 +365,36 @@ def do_work(ch, method, properties, body):
         print( e )
         return
 
-    if "tracker_id" not in payload:
+    if "tracker_id" not in payload and "type" not in payload:
         raise Exception(f"Invalid message {payload}")
         return
 
     tracker_id = payload['tracker_id']
-    tracker = master_api.get_export( tracker_id )
+    type = payload['state']
+    if type == 'export':
+        tracker = master_api.get_export( tracker_id )
+    elif type == 'import':
+        tracker = master_api.get_import( tracker_id )
+    else:
+        raise Exception(f"Invalid type '{type}'")
+        return
 
     state = tracker['state']
 
     logger.debug(f"do_work tracker_id: {tracker_id} state: '{state}'")
 
-    if state == 'pre-queueing':
+    if type == 'export' and state == 'pre-queueing':
         run_history_export( tracker )
-    elif state == 'ok':
+    elif type == 'export' and state == 'ok':
         run_fetch_export( tracker )
-    elif state == 'fetch-ok':
+    elif type == 'export' and state == 'fetch-ok':
         run_push_export( tracker )
+    elif state == 'finished':
+        pass
+    elif type == 'import' and state == 'pre-fetch':
+        get_history_from_nels()
+    elif type == 'import' and state == 'fetch-ok':
+        import_history()
     else:
         logger.error(f"Unknown state {state} for tracker_id: {tracker_id}")
 
