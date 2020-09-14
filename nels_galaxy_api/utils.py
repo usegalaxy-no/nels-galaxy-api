@@ -82,9 +82,11 @@ def construct_file_path(obj_id, file_dir=None):
     raise RuntimeError(f"Cannot find dataset: 'dataset_{obj_id}.dat'")
 
 
-def create_uuid():
-    # Generate a unique, high entropy 128 bit random number
-    return codecs.encode(get_random_bytes(16), 'hex').decode("utf-8")
+def create_uuid(length=16):
+    # Generate a unique, high entropy random number.
+    # Length 16 --> 128 bit
+    long_uuid = codecs.encode(get_random_bytes(length), 'hex').decode("utf-8")
+    return long_uuid[:32]
 
 def encrypt_ids(entry: any) -> []:
     if isinstance(entry, list):

@@ -105,6 +105,7 @@ def galaxy_init(galaxy_config: dict) -> None:
 
 
 
+
 def init(config_file: dict) -> None:
     config = config_utils.readin_config_file(config_file)
     galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
@@ -133,6 +134,8 @@ def init(config_file: dict) -> None:
         logger.info("Running with the master API")
         db.create_export_tracking_table()
         db.create_export_tracking_logs_table()
+        db.create_import_tracking_table()
+        db.create_import_tracking_logs_table()
 
         mq.connect(uri=config['mq_uri'])
 
@@ -321,6 +324,38 @@ class HistoryExportRequest(GalaxyHandler):
         self.redirect(redirect_url)
 
 
+class HistoryImportRequest(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/history/import/request")
+
+    def get(self):
+        logger.debug("request history import")
+
+        user = self.get_user()
+        if user is None or user == []:
+            return self.send_response_401()
+
+        data = {'user': user['id']}
+        uuid = states.set( data )
+
+        redirect_url = f"{nels_url}/welcome.xhtml"
+        redirect_url += f"?nels_file_browser&appCallbackUrl={master_url}/import/" + uuid + "/"
+
+        if DEV:
+            print( redirect_url )
+            return
+
+        self.redirect(redirect_url)
+
+# https://test-fe.cbu.uib.no/nels/welcome.xhtml?nels_file_browser&appCallbackUrl=http://localhost:8008/import/2345/
+# https://test-fe.cbu.uib.no/nels/welcome.xhtml?nels_file_browser&appCallbackUrl=http%3A//test-fe.cbu.uib.no/galaxy/nga/import
+# nelsId: 953
+# selectedFiles: Personal/Unnamed_history-20200904T122859.tgz
+
+
+
+
 class HistoryExport(GalaxyHandler):
 
     def endpoint(self):
@@ -486,6 +521,32 @@ class ExportsListProxy(GalaxyHandler):
                             'update_time': tracking['update_time'], })
 
         return self.send_response(data=results)
+
+class UserImportsList(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/user/imports/")
+
+    def get(self):
+        logger.debug("user import list")
+        # Will not check token here as relying on the session id instead
+        #        self.check_token()
+        user = self.get_user()
+        if user is None:
+            self.send_response_404()
+
+        logger.debug('accessing the data directly')
+            #            print( user )
+        trackings = db.get_import_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
+
+        results = []
+        for tracking in trackings:
+
+            del tracking['history_id']
+            results.append( tracking )
+
+        return self.send_response(data=results)
+
 
 
 class ProxyTest(GalaxyHandler):
@@ -654,6 +715,110 @@ class Export (GalaxyHandler):
             self.send_response_400()
 
 
+class RequeueImport (GalaxyHandler):
+
+    def endpoint(self):
+        return ("/import/ID/requeue/")
+
+    def post(self, tracking_id):
+
+        logger.debug("requeue import tracking")
+        self.check_token()
+
+
+        values = self.post_values()
+        self.require_arguments(values, ['state'])
+        state = values['state']
+        try:
+            tracking_id = utils.decrypt_value(tracking_id)
+            tracking = db.get_export_tracking(tracking_id)
+            tracking['state'] = state
+
+            for k in ['id', 'create_time', 'update_time']:
+                del tracking[ k ]
+
+            tracking['log'] = f"requeue import tracker {tracking_id} and changed state to {state}"
+            tracking_id = db.add_import_tracking(tracking)
+            tracking_id = utils.encrypt_value(tracking_id)
+            submit_mq_job(tracking_id )
+
+            self.send_response_200()
+        except Exception as e:
+            logger.error(f"Request import tracking error {e}")
+            self.send_response_404()
+
+
+
+class Import (GalaxyHandler):
+
+    def endpoint(self):
+        return ("/import/")
+
+    def get(self, tracking_id):
+
+        logger.debug("get tracking details")
+        self.check_token()
+        tracking_id = utils.decrypt_value(tracking_id)
+        tracking = utils.encrypt_ids(db.get_import_tracking(tracking_id))
+        self.send_response(data=tracking)
+
+    def patch(self, tracking_id):
+        logger.debug("patch tracking details")
+        self.check_token()
+        data = self.post_values()
+        self.valid_arguments(data, ['state', 'import_id', 'tmpfile'])
+        # need to decrypt the id otherwise things blow up!
+        tracking_id = utils.decrypt_value(tracking_id)
+
+        db.update_import_tracking(tracking_id, data)
+        return self.send_response_204()
+
+
+    def _register_import(self, user_id: int, nels_id: int, source: str):
+        logger.debug("registering export")
+        tracking = {'user_id': user_id,
+                    'state': 'pre-queueing',
+                    'nels_id': nels_id,
+                    'source': source}
+
+        # Need this function next
+        #        if not db.history_export_exists(tracking):
+        tracking_id = db.add_import_tracking(tracking)
+        return tracking_id
+
+    def post(self, state_id):
+
+        logger.debug(f"POST VALUES: {self.request.body}")
+        nels_id = int(self.get_body_argument("nelsId", default=None))
+        location = self.get_body_argument("selectedFiles", default=None)
+
+
+        state = states.get( state_id)
+        state = {'user': 4}
+
+        if state is None:
+            self.send_response_404()
+
+        logger.debug( f"State info for import: {state}")
+
+        try:
+            user = state[ 'user' ]
+            tracking_id = self._register_import(user, nels_id, location)
+            tracking_id = utils.encrypt_value( tracking_id )
+            submit_mq_job(tracking_id)
+            self.redirect(master_url)
+
+        except Exception as e:
+
+            logger.error(f"Error during import registation: {e}")
+            logger.debug( f"State info for import: {state}")
+            logger.debug( f"nels_id: {nels_id}")
+            logger.debug( f"location: {location}")
+
+            self.send_response_400()
+
+
+
 class Export_not_used(GalaxyHandler):
 
     def endpoint(self):
@@ -710,6 +875,39 @@ class ExportsList(Export):
         self.send_response(data=exports)
 
 
+
+class ImportsList(Export):
+
+    def endpoint(self):
+        return ("/import/")
+
+    def get(self, user: str = None):
+        logger.debug("get Import list")
+        logger.debug(proxy_keys)
+        self.check_token(proxy_keys)
+        filter = self.arguments()
+
+        # potential states: 'new', 'upload', 'waiting', 'queued', 'running', 'ok', 'error', 'paused', 'deleted', 'deleted_new' + 'pre-queueing'
+
+        # Ones we care about when polling: 'new', 'waiting', 'queued', 'running'  + 'pre-queueing'
+
+        self.valid_arguments(filter, ['state', ])
+
+        if 'state' in filter and filter['state'] not in ['new', 'upload', 'waiting',
+                                                         'queued', 'running', 'ok', 'error',
+                                                         'paused', 'deleted', 'deleted_new',
+                                                         'pre-queueing', 'fetch-running', 'fetch-ok', 'fetch-error',
+                                                         'nels-transfer-queue', 'nels-transfer-running',
+                                                         'nels-transfer-ok', 'nels-transfer-error']:
+            return self.send_response_400(data="Invalid value for state {}".format(filter['state']))
+
+        if user is not None:
+            filter['user_email'] = user
+
+        exports = utils.encrypt_ids(db.get_import_trackings(**filter))
+        self.send_response(data=exports)
+
+
 class ImportHandler(GalaxyHandler):
 
     def endpoint(self):
@@ -753,13 +951,15 @@ def main():
             (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
             (r"/user/({email_match})/api-key/?$".format(email_match=string_utils.email_match), UserApikey), # to test
 
-
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy), # done
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
 
             (r'/history/export/(\w+)?$', HistoryExport),  # export_id, last one pr history is default # skip
             (r'/history/export/?$', HistoryExport),  # possible to search by history_id               # ship
+
+            (r'/history/import/request/?$', HistoryExportRequest),  # Register export request #Done
+            (r"/user/imports/?$", UserImportsList), # done
 
             (r'/history/exports/(all)/?$', HistoryExportsList),  # for the local instance, all, brief is default # done
             (r'/history/exports/?$', HistoryExportsList),  # for the local instance, all, brief is default       # done
@@ -784,12 +984,21 @@ def main():
                  # user_email, instance. If user_email == all, export all entries for instance
 
                  (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key?) # done
-                 # For testing the setup
 
+                 # imports!
+                 (r'/import/(\w+)/requeue/?$', RequeueImport),  # requeue  export request
+                 (r"/import/(\w+)/?$", Import), # state-id (post) #
+
+                 (r"/imports/(\w+)/?$", ImportsList), # user_email #
+                 # user_email, instance. If user_email == all, export all entries for instance
+                 (r'/imports/?$', ImportsList),  # All entries in the table, for the cli (differnt key?) # done
+
+                 # For testing the setup
                  (r'/proxy/?$', ProxyTest),  # an  endpoint for testing the proxy connection #done
+
                  # Might drop these two
-                 #(r'/decrypt/(\w+)/?$', Decrypt),
-                 #(r'/encrypt/(\w+)/?$', Encrypt)
+                 (r'/decrypt/(\w+)/?$', Decrypt),
+                 (r'/encrypt/(\w+)/?$', Encrypt)
                  ]
 
     if DEV:

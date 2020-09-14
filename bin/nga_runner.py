@@ -260,6 +260,46 @@ def get_ssh_credential(nels_id: int):
         raise Exception("HTTP response code=%s" % str(response.status_code))
 
 
+def get_history_from_nels( tracker ):
+
+    tracker_id = tracker['id']
+    logger.info(f'{tracker_id}: push export start')
+
+    try:
+
+        master_api.update_import(tracker_id, {'state': 'nels-transfer-running'})
+
+        outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['filename'])
+
+        ssh_info = get_ssh_credential(tracker['nels_id'])
+        logger.debug(f"{tracker_id} ssh info {ssh_info}")
+
+        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}" outfile'
+        #        logger.debug(f"CMD: {cmd}")
+        run_cmd(cmd, 'pull data')
+        master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
+        user = db.get_user()
+        user_api_key = db.get_api_key(user['id'])
+        galaxy_instance = GalaxyInstance(instances[instance]['url'], key=user_api_key['key'], verify=certifi.where())
+        galaxy_instance.histories.import_history( tmp_file)
+        master_api.update_export(tracker_id, {'state': 'history-import'})
+        # track job!
+
+        # clean up!
+        cmd = f"rm {tracker['tmpfile']}"
+        master_api.update_export(tracker_id, {'state': 'finished'})
+        logger.debug(f"CMD: {cmd}")
+        run_cmd(cmd, 'cleanup')
+        logger.info(f'{tracker_id}: history import done')
+    except Exception as e:
+        import traceback
+        traceback.print_tb(e.__traceback__)
+
+        master_api.update_export(tracker_id, {'state': 'nels-transfer-error'})
+        logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
+
+
+
 def do_work(ch, method, properties, body):
 
     logger.debug("Callback call::: Method %s Delivery tag: %s Message body: %s\n" % ( method, properties, body))

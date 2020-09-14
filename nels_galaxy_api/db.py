@@ -115,6 +115,7 @@ class DB(object):
         self.add_export_tracking_log(tracking_id, state="Created", log=log)
         return tracking_id
 
+
     def update_export_tracking(self, tracking_id: int, values: {}):
         values['update_time'] = datetime.datetime.now()
 
@@ -268,3 +269,163 @@ class DB(object):
 
     def get_history(self, history_id: int) -> {}:
         return self._db.get('history', id=history_id)
+
+    def add_api_key(self, user_id:int, key:str):
+        values = {'user_id': user_id,
+                  'key': key,
+                  'create_time': datetime.datetime.now()
+                  }
+        self._db.add('api_keys', values)
+
+    def get_api_key(self, user_id:int):
+        return self._db.get_single('api_keys', user_id=user_id)
+
+
+
+    def get_imports(self, state: str = "") -> []:
+        exports = self.get_all_exports()
+
+        cleaned_exports = {}
+
+        for export in exports:
+            if export['history_id'] not in cleaned_exports:
+                cleaned_exports[export['history_id']] = export
+
+            elif cleaned_exports[export['history_id']]['create_time'] < export['create_time']:
+                cleaned_exports[export['history_id']] = export
+
+        if state != '':
+            tmp_exports = {}
+            for name in cleaned_exports:
+                export = cleaned_exports[name]
+                if export['state'] == state:
+                    tmp_exports[name] = export
+
+            cleaned_exports = tmp_exports
+
+        return list(cleaned_exports.values())
+
+
+    def get_all_imports(self, state: str = "") -> []:
+        if state != "":
+            state = f" and job.state = '{state}'"
+
+        q = '''select ha.id as import_id, ha.history_id, h.name as history_name, ga.id as user_id, ga.email, job.create_time, job.state  
+               from job_import_history_archive as ha, galaxy_user as ga, history as h, job 
+               where ga.id = h.user_id and 
+                     h.id = ha.history_id and 
+                    job.id = ha.job_id {state} 
+               order by ha.id;
+            '''
+
+        return (self._db.get_as_dict(q.format(state=state)))
+
+    def get_all_user_history_imports(self, user_id: int) -> []:
+        q = '''select ha.id as export_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
+               from galaxy_user as ga, history as h, job_import_history_archive as ha, job 
+               where ga.id = {user_id} and 
+                     ga.id = h.user_id and 
+                     h.id = ha.history_id 
+                     and job.id = ha.job_id;
+            '''
+
+        return (self._db.get_as_dict(q.format(user_id=user_id)))
+
+    def get_import(self, export_id: int) -> []:
+        q = '''select ha.id as import_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
+               from history as h, job_import_history_archive as ha, job 
+               where ha.id = {export_id} and  
+                     h.id = ha.history_id 
+                     and job.id = ha.job_id;
+            '''
+
+        return (self._db.get_as_dict(q.format(export_id=export_id)))
+
+    def imports(self, user_id: int) -> []:
+        imports = self.get_all_user_history_imports(user_id)
+
+        cleaned_imports = {}
+
+        for imp in imports:
+            if imp['history_id'] not in cleaned_imports:
+                cleaned_imports[imp['history_id']] = imp
+
+            elif cleaned_imports[imp['history_id']]['create_time'] < imp['create_time']:
+                cleaned_imports[imp['history_id']] =imp
+
+        return list(cleaned_imports.values())
+
+
+    def create_import_tracking_table(self) -> None:
+        if self.table_exist('nels_import_tracking'):
+            return
+
+        q = '''CREATE TABLE nels_import_tracking (
+              id             SERIAL PRIMARY KEY,
+              user_id        INT,
+              import_id      VARCHAR(80),
+              state          VARCHAR(80),
+              create_time    TIMESTAMP,
+              update_time    TIMESTAMP,
+              nels_id        INT,
+              source         VARCHAR(80),
+              tmpfile        VARCHAR(300)
+              );
+            '''
+        self._db.do(q)
+
+    def add_import_tracking(self, values):
+        values['create_time'] = datetime.datetime.now()
+
+        log = None
+        if 'log' in values:
+            log = values['log']
+            del values['log']
+
+        self._db.add('nels_import_tracking', values)
+        tracking_id = self._db.get_id('nels_import_tracking', **values)
+        self.add_import_tracking_log(tracking_id, state="Created", log=log)
+        return tracking_id
+
+
+    def update_import_tracking(self, tracking_id: int, values: {}):
+        values['update_time'] = datetime.datetime.now()
+
+        log = None
+        if 'log' in values:
+            log = values['log']
+            del values['log']
+
+        self._db.update('nels_import_tracking', values, {'id': tracking_id})
+        self.add_import_tracking_log(tracking_id, state=values['state'], log=log)
+
+
+    def get_import_trackings(self, **values):
+        return self._db.get('nels_import_tracking', **values)
+
+    def get_import_tracking(self, tracking_id: int):
+        return self._db.get_single('nels_import_tracking', id=tracking_id)
+
+    def create_import_tracking_logs_table(self) -> None:
+        if self.table_exist('nels_import_tracking_log'):
+            return
+
+        q = '''CREATE TABLE nels_import_tracking_log (
+                  id             SERIAL PRIMARY KEY,
+                  create_time    TIMESTAMP,
+                  tracking_id    INT,
+                  log            VARCHAR(80)
+               ); '''
+        self._db.do(q)
+
+
+    def add_import_tracking_log(self, tracking_id: int, state: str, log:str=None) -> None:
+        values = {'create_time': datetime.datetime.now(),
+                  'tracking_id': tracking_id,
+                  'log': log}
+        if log is None:
+            values[ 'log' ] = f"Changed state to {state}"
+
+        self._db.add('nels_import_tracking_log', values)
+
+
