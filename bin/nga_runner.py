@@ -371,14 +371,13 @@ def do_work(ch, method, properties, body):
         return
 
     tracker_id = payload['tracker_id']
-    type = payload['state']
+    type = payload['type']
     if type == 'export':
         tracker = master_api.get_export( tracker_id )
     elif type == 'import':
         tracker = master_api.get_import( tracker_id )
     else:
         logger.error(f"Invalid type '{type}'")
-
         raise Exception(f"Invalid type '{type}'")
         return
 
