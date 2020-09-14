@@ -377,6 +377,8 @@ def do_work(ch, method, properties, body):
     elif type == 'import':
         tracker = master_api.get_import( tracker_id )
     else:
+        logger.error(f"Invalid type '{type}'")
+
         raise Exception(f"Invalid type '{type}'")
         return
 
