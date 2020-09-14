@@ -33,6 +33,7 @@ verbose = False
 version = version_utils.as_string()
 
 mq = mq_utils.Mq()
+galaxy_config = None
 
 def readable_date(timestamp:str) -> str:
 
@@ -58,12 +59,8 @@ def init( config_file:str) -> {}:
 #    nels_storage_client_secret = config['nels_storage_client_secret']
 #    nels_storage_url = config['nels_storage_url'].rstrip("/")
 
-    galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
-    if 'id_secret' not in galaxy_config['galaxy']:
-        id_secret = "USING THE DEFAULT IS NOT SECURE!"
-    else:
-        id_secret = galaxy_config['galaxy']['id_secret']
-    nga_utils.init(id_secret)
+    global galaxy_config
+    galaxy_config = config['galaxy_config']
 
 
     mq.connect(uri=config['mq_uri'])
@@ -641,11 +638,23 @@ def utils(config, commands):
         print(f"Currently {mq.queue_length('default')} messages in the MQueue")
         return
     elif sub_command == 'decrypt':
+        galaxy_config = config_utils.readin_config_file( galaxy_config)
+        if 'id_secret' not in galaxy_config['galaxy']:
+            id_secret = "USING THE DEFAULT IS NOT SECURE!"
+        else:
+            id_secret = galaxy_config['galaxy']['id_secret']
+        nga_utils.init(id_secret)
         value = args_utils.get_or_fail(commands, "value is required" )
 #        dec_value =
         print( f"{value}\t{nga_utils.decrypt_value( value )}")
         return
     elif sub_command == 'encrypt':
+        galaxy_config = config_utils.readin_config_file( galaxy_config)
+        if 'id_secret' not in galaxy_config['galaxy']:
+            id_secret = "USING THE DEFAULT IS NOT SECURE!"
+        else:
+            id_secret = galaxy_config['galaxy']['id_secret']
+        nga_utils.init(id_secret)
         value = args_utils.get_or_fail(commands, "value is required" )
         print( f"{value}\t{nga_utils.encrypt_value( value )}")
         return

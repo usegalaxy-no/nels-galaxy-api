@@ -366,6 +366,7 @@ def do_work(ch, method, properties, body):
         return
 
     if "tracker_id" not in payload and "type" not in payload:
+        logger.error(f"Invalid message {payload}")
         raise Exception(f"Invalid message {payload}")
         return
 
