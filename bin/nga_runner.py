@@ -382,6 +382,8 @@ def do_work(ch, method, properties, body):
         raise Exception(f"Invalid type '{type}'")
         return
 
+
+    logger.debug(f"tracker {tracker}")
     state = tracker['state']
 
     logger.debug(f"do_work tracker_id: {tracker_id} state: '{state}'")
