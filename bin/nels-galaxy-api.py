@@ -253,8 +253,9 @@ class User(GalaxyHandler):
         if api_key is None or api_key == []:
             new_key = utils.create_uuid(32)
             db.add_api_key(user['id'], new_key)
-
-        user['api_key'] = api_key
+            user['api_key'] = new_key
+        else:
+            user['api_key'] = api_key['key']
 
 
         print( user )
