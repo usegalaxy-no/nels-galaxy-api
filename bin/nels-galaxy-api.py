@@ -245,7 +245,6 @@ class User(GalaxyHandler):
         user = db.get_user(id=user_id)
         if user is None or user == []:
             return self.send_response_404()
-        user = user[0]
 
         user = utils.encrypt_ids( user )
         return self.send_response(data=user)
