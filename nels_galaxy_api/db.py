@@ -321,7 +321,7 @@ class DB(object):
         return (self._db.get_as_dict(q.format(state=state)))
 
     def get_all_user_history_imports(self, user_id: int) -> []:
-        q = '''select ha.id as export_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
+        q = '''select ha.id as import_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
                from galaxy_user as ga, history as h, job_import_history_archive as ha, job 
                where ga.id = {user_id} and 
                      ga.id = h.user_id and 
@@ -331,15 +331,15 @@ class DB(object):
 
         return (self._db.get_as_dict(q.format(user_id=user_id)))
 
-    def get_import(self, export_id: int) -> []:
+    def get_import(self, import_id: int) -> []:
         q = '''select ha.id as import_id, ha.history_id, h.name, job.create_time, job.state, job.id as job_id  
                from history as h, job_import_history_archive as ha, job 
-               where ha.id = {export_id} and  
+               where ha.id = {import_id} and  
                      h.id = ha.history_id 
                      and job.id = ha.job_id;
             '''
 
-        return (self._db.get_as_dict(q.format(export_id=export_id)))
+        return (self._db.get_as_dict(q.format(import_id=import_id)))
 
     def imports(self, user_id: int) -> []:
         imports = self.get_all_user_history_imports(user_id)

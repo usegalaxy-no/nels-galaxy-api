@@ -305,8 +305,9 @@ def get_imports( config:{}, user_email:str=None):
         if not nr_imports:
             continue
 
-        brief.append({'name':instance['name'], 'user': user['email'], 'imports':  nr_imports })
+        brief.append({'user': user['email'], 'imports':  nr_imports })
         for tmp_import in tmp_imports:
+            print( tmp_import )
             if not verbose:
                 del tmp_import['import_id']
                 del tmp_import['job_id']
