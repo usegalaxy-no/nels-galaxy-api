@@ -277,13 +277,13 @@ def get_history_from_nels( tracker ):
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{tracker["source"]}" outfile'
         #        logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'pull data')
-        master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
+        master_api.update_import(tracker_id, {'state': 'nels-transfer-ok'})
         submit_mq_job(tracker_id, "import")
     except Exception as e:
         import traceback
         traceback.print_tb(e.__traceback__)
 
-        master_api.update_export(tracker_id, {'state': 'nels-transfer-error'})
+        master_api.update_import(tracker_id, {'state': 'nels-transfer-error'})
         logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
 
 def import_history( tracker ):
