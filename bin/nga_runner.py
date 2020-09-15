@@ -274,7 +274,7 @@ def get_history_from_nels( tracker ):
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"{tracker_id} ssh info {ssh_info}")
 
-        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}" outfile'
+        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{tracker["source"]}" outfile'
         #        logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'pull data')
         master_api.update_export(tracker_id, {'state': 'nels-transfer-ok'})
