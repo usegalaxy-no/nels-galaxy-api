@@ -269,15 +269,15 @@ def get_history_from_nels( tracker ):
 
         master_api.update_import(tracker_id, {'state': 'nels-transfer-running'})
 
-        outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['source'])
+        tmpfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['source'])
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"{tracker_id} ssh info {ssh_info}")
 
-        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{tracker["source"]}" outfile'
+        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{tracker["source"]}" tmpfile'
         #        logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'pull data')
-        master_api.update_import(tracker_id, {'state': 'nels-transfer-ok'})
+        master_api.update_import(tracker_id, {'state': 'nels-transfer-ok', 'tmpfile': tmpfile})
         submit_mq_job(tracker_id, "import")
     except Exception as e:
         import traceback
