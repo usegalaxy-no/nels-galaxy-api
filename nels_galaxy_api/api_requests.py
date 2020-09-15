@@ -68,18 +68,23 @@ class ApiRequests( object ):
     def get_session_exports(self) -> []:
         return self._request_get(f"{self._base_url}/user/exports/")
 
-
     def get_user_histories(self, user_id:str) -> []:
         return self._request_get(f"{self._base_url}/user/{user_id}/histories")
 
     def get_user_history_exports(self, user_id:str) -> []:
         return self._request_get(f"{self._base_url}/user/{user_id}/exports")
 
+    def get_user_history_imports(self, user_id:str) -> []:
+        return self._request_get(f"{self._base_url}/user/{user_id}/imports")
+
     def get_history_exports(self, filter:{}={}) -> []:
         return self._request_get(f"{self._base_url}/history/exports", data=filter)
 
     def get_all_history_exports(self, filter:{}={}) -> []:
         return self._request_get(f"{self._base_url}/history/exports/all/", data=filter)
+
+    def get_all_history_imports(self, filter:{}={}) -> []:
+        return self._request_get(f"{self._base_url}/history/imports/all/", data=filter)
 
     def get_history_export(self, export_id:str=None, history_id:str=None):
 
@@ -108,20 +113,35 @@ class ApiRequests( object ):
     def requeue_export(self, tracking_id:str, data:{}):
         return self._request_post(f"{self._base_url}/export/{tracking_id}/requeue/", data=data)
 
+    def requeue_import(self, tracking_id:str, data:{}):
+        return self._request_post(f"{self._base_url}/import/{tracking_id}/requeue/", data=data)
+
+
     def add_bulk_export(self, instance:str, user:str, data:{}):
         return self._request_post(f"{self._base_url}/export/{instance}/{user}/bulk/", data)
 
     def get_export(self, tracking_id:str):
         return self._request_get(f"{self._base_url}/export/{tracking_id}/")
 
+    def get_import(self, tracking_id:str):
+        return self._request_get(f"{self._base_url}/import/{tracking_id}/")
+
     def update_export(self, tracking_id:str, data:{}):
         return self._request_patch(f"{self._base_url}/export/{tracking_id}/", data=data)
+
+    def update_import(self, tracking_id:str, data:{}):
+        return self._request_patch(f"{self._base_url}/import/{tracking_id}/", data=data)
 
     def get_user_instance_exports(self, user:str, instance:str):
         return self._request_get(f"{self._base_url}/exports/{user}/{instance}/")
 
+
     def get_user_exports(self, user:str):
         return self._request_get(f"{self._base_url}/exports/{user}/")
+
+    def get_user_imports(self, user:str):
+        return self._request_get(f"{self._base_url}/imports/{user}/")
+
 
     def get_instance_exports(self, instance:str, filter=None):
         return self._request_get(f"{self._base_url}/exports/all/{instance}/", data=filter)
@@ -129,10 +149,15 @@ class ApiRequests( object ):
     def get_exports(self):
         return self._request_get(f"{self._base_url}/exports/")
 
+    def get_imports(self):
+        return self._request_get(f"{self._base_url}/imports/")
+
     def get_proxy(self):
         return self._request_get(f"{self._base_url}/proxy/")
 
-# Need these as the request thingy has changed slightly
+
+
+# Need these as the request thingy has changed slightly, prob not anymore!
 def set_token(new_token:str):
     requests_utils.set_token( new_token)
 

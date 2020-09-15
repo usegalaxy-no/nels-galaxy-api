@@ -283,7 +283,49 @@ def get_exports( config:{}, instance_name:str=None, user_email:str=None):
         print(tabulate( brief, headers="keys", tablefmt="psql"  ))
 
 
-def list_requests(config:{}, user:str=None, instance:str=None):
+def get_imports( config:{}, user_email:str=None):
+
+    imports = []
+    brief     = []
+
+    if user_email == "help":
+        print("help: imports <user-email>")
+        return
+
+
+    users =     config['master_api'].get_users()
+    users = sorted(users, key=lambda x: x['email'].lower())
+
+    for user in users:
+        if user_email is not None and user['email'] != user_email:
+            continue
+
+        tmp_imports = config['master_api'].get_user_history_imports(user['id'])
+        nr_imports = len( tmp_imports )
+        if not nr_imports:
+            continue
+
+        brief.append({'name':instance['name'], 'user': user['email'], 'imports':  nr_imports })
+        for tmp_import in tmp_imports:
+            if not verbose:
+                del tmp_import['import_id']
+                del tmp_import['job_id']
+                del tmp_import['history_id']
+
+            tmp_import['user'] = user['email']
+            tmp_import['created'] = readable_date(tmp_import['create_time'])
+            del tmp_import['create_time']
+
+            imports.append( tmp_import )
+
+
+    if verbose:
+        print(tabulate( imports, headers="keys", tablefmt="psql" ))
+    else:
+        print(tabulate( brief, headers="keys", tablefmt="psql"  ))
+
+
+def list_export_requests(config:{}, user:str=None, instance:str=None):
     requests = []
     brief     = []
 
@@ -312,6 +354,30 @@ def list_requests(config:{}, user:str=None, instance:str=None):
     print(tabulate( requests, headers="keys", tablefmt="psql"   ))
 
 
+def list_import_requests(config:{}, user:str=None):
+    requests = []
+    brief     = []
+
+    if user is not None:
+        requests = config['master_api'].get_user_imports(user)
+    else:
+        requests = config['master_api'].get_imports()
+
+    for request in requests:
+
+        request['update_time'] = readable_date(request['update_time'])
+        request['create_time'] = readable_date(request['create_time'])
+
+        if not verbose:
+            for k in ['nels_id', 'source']:
+                del request[k]
+
+
+    requests = sorted(requests, key=lambda x: (x['create_time'], x['update_time'] ))
+
+    print(tabulate( requests, headers="keys", tablefmt="psql"   ))
+
+
 def log_requests(config, commands):
     if len(commands) == 0:
         commands.append( 'all')
@@ -331,7 +397,7 @@ def log_requests(config, commands):
         print("log: <all> ")
         print("log: request [request-id] ")
 
-def get_requests(config:{}, commands=[]):
+def get_export_requests(config:{}, commands=[]):
 
 
     if len(commands) == 0:
@@ -344,16 +410,16 @@ def get_requests(config:{}, commands=[]):
         user_email = args_utils.get_or_default(commands, None )
         instance_id = config['instances'][instance_name]['id']
 
-        list_requests(config, user_email, instance_id)
+        list_export_requests(config, user_email, instance_id)
 
     elif sub_command == 'user':
         user_email = args_utils.get_or_fail(commands, "user email is required" )
         instance = args_utils.get_or_default(commands, None )
         if instance is not None:
             instance = config['instances'][instance]['id']
-        list_requests(config, user_email, instance)
+        list_export_requests(config, user_email, instance)
     elif sub_command == 'all':
-        list_requests(config)
+        list_export_requests(config)
     elif sub_command == 'log':
         log_requests(config, commands)
     elif sub_command == 'queue':
@@ -378,6 +444,45 @@ def get_requests(config:{}, commands=[]):
         print("requests: requests queue ID [new-state]")
         print("requests: requests requeue ID new-state")
         print("requests: requests restate ID new-state")
+
+def get_import_requests(config:{}, commands=[]):
+
+
+    if len(commands) == 0:
+        commands.append( 'all')
+
+    sub_command = commands.pop(0)
+
+    if sub_command == 'user':
+        user_email = args_utils.get_or_fail(commands, "user email is required" )
+        list_import_requests(config, user_email)
+    elif sub_command == 'all':
+        list_import_requests(config)
+    elif sub_command == 'log':
+        log_requests(config, commands)
+    elif sub_command == 'queue':
+        queue_job(config, commands)
+        sys.exit()
+    elif sub_command == 'requeue':
+        requeue_job(config, commands)
+        sys.exit()
+    elif sub_command == 'restate':
+        restate_job(config, commands)
+        sys.exit()
+    else:
+        if sub_command != 'help':
+            print( f"Error: Unknown command '{sub_command}'\n")
+
+        print("Help:")
+        print("==========================")
+        print("requests: requests [all] ")
+        print("requests: requests user user-email [instance]")
+        print("requests: requests instance instance-name [email]")
+
+        print("requests: requests queue ID [new-state]")
+        print("requests: requests requeue ID new-state")
+        print("requests: requests restate ID new-state")
+
 
 def submit_mq_job(tracker_id:int, type:str) -> None:
 
@@ -462,6 +567,9 @@ def list_galaxy_info(config, commands):
         get_exports(config, instance_name=args_utils.get_or_default(commands, None),
                     user_email=args_utils.get_or_default(commands, None))
         return
+    elif sub_command == 'imports':
+        get_imports(config, user_email=args_utils.get_or_default(commands, None))
+        return
     else:
         if sub_command != 'help':
             print( f"Error: Unknown command '{sub_command}'\n")
@@ -471,6 +579,7 @@ def list_galaxy_info(config, commands):
         print("list: users [instance] ")
         print("list: histories [instance] [user]")
         print("list: exports [instance] [user]")
+        print("list: imports [user]")
 
 
 def nga_errors(config, commands):
@@ -700,7 +809,7 @@ def export(config, commands):
 
 def main():
 
-    commands = ['ping', 'list', 'requests', 'utils', 'help']
+    commands = ['ping', 'list', 'exports', 'imports','utils', 'help']
 
     parser = argparse.ArgumentParser(description=f'nga_cli: command line tool for the NGA ({version})')
 
@@ -725,12 +834,9 @@ def main():
     global verbose
     verbose = args.verbose
 
-
-
     config = init( args.config)
 
     args_utils.min_count(1, len(args.command), msg="nga-cli takes one of the following commands: {}".format(string_utils.comma_sep(commands)))
-
 
     command = args.command.pop(0)
     if command == 'ping':
@@ -739,15 +845,18 @@ def main():
         sys.exit()
     elif command == 'list':
         list_galaxy_info(config, args.command)
-    elif command == 'requests':
-        get_requests(config, args.command)
+    elif command == 'exports':
+        get_export_requests(config, args.command)
+        sys.exit()
+    elif command == 'imports':
+        get_import_requests(config, args.command)
         sys.exit()
     elif command == 'utils':
         utils(config, args.command)
         sys.exit()
-    elif command == 'export':
-        export(config, args.command)
-        sys.exit()
+#    elif command == 'export':
+#        export(config, args.command)
+#        sys.exit()
 
     else:
         print("The tool support the following commands: {}\n".format(string_utils.comma_sep( commands )))

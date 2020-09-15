@@ -428,4 +428,18 @@ class DB(object):
 
         self._db.add('nels_import_tracking_log', values)
 
+    def get_user_history_imports(self, user_id: int):
+        imports = self.get_all_user_history_imports(user_id)
+
+        cleaned_imports = {}
+
+        for imp in imports:
+            if imp['history_id'] not in cleaned_imports:
+                cleaned_imports[export['history_id']] = imp
+
+            elif cleaned_imports[imp['history_id']]['create_time'] < imp['create_time']:
+                cleaned_imports[imp['history_id']] = imp
+
+        return list(cleaned_imports.values())
+
 

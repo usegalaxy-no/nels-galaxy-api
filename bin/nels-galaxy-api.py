@@ -299,6 +299,24 @@ class UserExports(GalaxyHandler):
         return self.send_response(data=user_exports)
 
 
+class UserImports(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/")
+
+    def get(self, user_email):
+        logger.debug("get user imports")
+        self.check_token()
+        user = db.get_user(email=user_email)
+        if user is None or user == []:
+            return self.send_response_401()
+
+        # Should only be one user with a given email!
+        user = user[0]
+
+        user_imports = utils.encrypt_ids(db.get_user_history_imports(user['id']))
+        return self.send_response(data=user_imports)
+
 class HistoryExportRequest(GalaxyHandler):
 
     def endpoint(self):
@@ -384,6 +402,34 @@ class HistoryExport(GalaxyHandler):
         else:
             return self.send_response_404()
 
+class HistoryImport(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/history/import")
+
+    def get(self, import_id=None):
+        logger.debug("get history imports")
+        self.check_token()
+
+        if import_id is None:
+            logger.debug('getting by history_id')
+            filter = self.arguments()
+
+            self.require_arguments(filter, ['history_id', ])
+            history_id = utils.decrypt_value(filter['history_id'])
+            imp = db.get_latest_import_for_history(history_id)
+        else:
+            logger.debug('getting by export_id')
+            import_id = utils.decrypt_value(import_id)
+            imp = db.get_import(import_id)
+
+        if len(imp):
+            imp = imp[0]
+            imp = utils.encrypt_ids(imp)
+            return self.send_response(data=imp)
+        else:
+            return self.send_response_404()
+
 
 class HistoryExportsList(GalaxyHandler):
 
@@ -412,6 +458,34 @@ class HistoryExportsList(GalaxyHandler):
 
         exports = utils.list_encrypt_ids(exports)
         return self.send_response(data=exports)
+
+class HistoryImportsList(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/history/imports/")
+
+    def get(self, all=False):
+        logger.debug("get history imports list")
+        self.check_token()
+        filter = self.arguments()
+
+        self.valid_arguments(filter, ['state', ])
+
+        if 'state' not in filter:
+            filter['state'] = ''
+
+        if 'state' in filter and filter['state'] not in ['new', 'upload', 'waiting', '',
+                                                         'queued', 'running', 'ok', 'error',
+                                                         'paused', 'deleted', 'deleted_new', 'pre-queueing', 'all']:
+            return self.send_response_400(data="Invalid value for state {}".format(filter['state']))
+
+        if all == 'all':
+            imports = db.get_all_imports(state=filter['state'])
+        else:
+            imports = db.get_imports(state=filter['state'])
+
+        imports = utils.list_encrypt_ids(imports)
+        return self.send_response(data=imports)
 
 
 class HistoryDownload(GalaxyHandler):
@@ -950,20 +1024,27 @@ def main():
             (r'/users/?$', Users), #Done
             (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
             (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
+            (r"/user/({email_match})/imports/?$".format(email_match=string_utils.email_match), UserImports), # all, brief is default #Done
             (r"/user/({email_match})/api-key/?$".format(email_match=string_utils.email_match), UserApikey), # to test
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy), # done
+            (r"/user/imports/?$", UserImportsList), #
+
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
+            (r'/history/import/request/?$', HistoryImportRequest),  #
 
             (r'/history/export/(\w+)?$', HistoryExport),  # export_id, last one pr history is default # skip
-            (r'/history/export/?$', HistoryExport),  # possible to search by history_id               # ship
+            (r'/history/export/?$',      HistoryExport),  # possible to search by history_id               # ship
+            (r'/history/import/(\w+)?$', HistoryImport),  # export_id, last one pr history is default # skip
+            (r'/history/import/?$',      HistoryImport),  # possible to search by history_id               # ship
 
-            (r'/history/import/request/?$', HistoryExportRequest),  # Register export request #Done
-            (r"/user/imports/?$", UserImportsList), # done
 
             (r'/history/exports/(all)/?$', HistoryExportsList),  # for the local instance, all, brief is default # done
-            (r'/history/exports/?$', HistoryExportsList),  # for the local instance, all, brief is default       # done
+            (r'/history/exports/?$',       HistoryExportsList),  # for the local instance, all, brief is default       # done
+            (r'/history/imports/(all)/?$', HistoryImportsList),  # for the local instance, all, brief is default # done
+            (r'/history/imports/?$',       HistoryImportsList),  # for the local instance, all, brief is default       # done
+
             (r'/history/download/(\w+)/?$', HistoryDownload),  # fetching exported histories                     # skip
 
             ]
@@ -976,22 +1057,19 @@ def main():
     if 'master' in config and config['master']:
         logger.debug( "setting the master endpoints")
         urls += [(r'/export/(\w+)/requeue/?$', RequeueExport),  # requeue  export request
+                 (r'/import/(\w+)/requeue/?$', RequeueImport),  # requeue  export request
+
                  (r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
                  (r'/export/(\w+)/?$', Export),  # get or patch an export request # skip
+                 (r"/import/(\w+)/?$", Import), # state-id (post) #
 
                  (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList), # user_email # done
                  (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),  # user_email, instance. If user_email == all, export all entries for instance # done
                  (r"/exports/(all)/(\w+)/?$", ExportsList), # done
+                 (r"/imports/(\w+)/?$", ImportsList), # user_id #
                  # user_email, instance. If user_email == all, export all entries for instance
 
                  (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key?) # done
-
-                 # imports!
-                 (r'/import/(\w+)/requeue/?$', RequeueImport),  # requeue  export request
-                 (r"/import/(\w+)/?$", Import), # state-id (post) #
-
-                 (r"/imports/(\w+)/?$", ImportsList), # user_email #
-                 # user_email, instance. If user_email == all, export all entries for instance
                  (r'/imports/?$', ImportsList),  # All entries in the table, for the cli (differnt key?) # done
 
                  # For testing the setup
