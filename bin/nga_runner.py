@@ -396,9 +396,9 @@ def do_work(ch, method, properties, body):
     elif state == 'finished':
         pass
     elif type == 'import' and state == 'pre-fetch':
-        get_history_from_nels()
+        get_history_from_nels(tracker)
     elif type == 'import' and state == 'fetch-ok':
-        import_history()
+        import_history( tracker )
     else:
         logger.error(f"Unknown state {state} for tracker_id: {tracker_id}")
 

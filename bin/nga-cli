@@ -363,12 +363,12 @@ def list_import_requests(config:{}, user:str=None):
     else:
         requests = config['master_api'].get_imports()
 
-    print( requests )
+#    print( requests )
 
     for request in requests:
 
         user = config['master_api'].get_user( request['user_id'])
-        print( user )
+#        print( user )
         if len(user):
             request['user_email'] = user['email']
         else:
@@ -379,7 +379,7 @@ def list_import_requests(config:{}, user:str=None):
         request['create_time'] = readable_date(request['create_time'])
 
         if not verbose:
-            for k in ['nels_id', 'source']:
+            for k in ['nels_id', 'source', 'user_id']:
                 del request[k]
 
 
@@ -433,13 +433,13 @@ def get_export_requests(config:{}, commands=[]):
     elif sub_command == 'log':
         log_requests(config, commands)
     elif sub_command == 'queue':
-        queue_job(config, commands)
+        queue_export_job(config, commands)
         sys.exit()
     elif sub_command == 'requeue':
-        requeue_job(config, commands)
+        requeue_job(config, commands, 'export')
         sys.exit()
     elif sub_command == 'restate':
-        restate_job(config, commands)
+        restate_job(config, commands, 'export')
         sys.exit()
     else:
         if sub_command != 'help':
@@ -471,13 +471,13 @@ def get_import_requests(config:{}, commands=[]):
     elif sub_command == 'log':
         log_requests(config, commands)
     elif sub_command == 'queue':
-        queue_job(config, commands)
+        queue_import_job(config, commands)
         sys.exit()
     elif sub_command == 'requeue':
-        requeue_job(config, commands)
+        requeue_job(config, commands, 'import')
         sys.exit()
     elif sub_command == 'restate':
-        restate_job(config, commands)
+        restate_job(config, commands, 'import')
         sys.exit()
     else:
         if sub_command != 'help':
@@ -504,7 +504,7 @@ def submit_mq_job(tracker_id:int, type:str) -> None:
     mq.publish(body=json.dumps(payload))
 
 
-def queue_job(config:{}, commands=[]):
+def queue_export_job(config:{}, commands=[]):
 
     if len(commands) == 0:
         print("requests: queue job-id [new-state]")
@@ -533,7 +533,37 @@ def queue_job(config:{}, commands=[]):
 #    job_id = config['master_api'].decrypt( job_id )
     submit_mq_job( tracker_id=job_id, type="export")
 
-def requeue_job(config:{}, commands=[]):
+def queue_import_job(config:{}, commands=[]):
+
+    if len(commands) == 0:
+        print("requests: queue job-id [new-state]")
+        return
+
+    job_id = args_utils.get_or_fail(commands, "Job id is required" )
+    state = args_utils.get_or_default(commands, None )
+
+
+    tracker = config['master_api'].get_import( job_id)
+    if tracker is None:
+        print(f"Unknown job id {job_id}")
+        sys.exit(1)
+
+    del tracker['id']
+    del tracker['create_time']
+    del tracker['update_time']
+
+    #    tracker = config['master_api'].post_export( job_id)
+
+    if state is not None and state != tracker['state']:
+        config['master_api'].update_import(job_id, {'state':state})
+    else:
+        state = tracker['state']
+
+    #    job_id = config['master_api'].decrypt( job_id )
+    submit_mq_job( tracker_id=job_id, type="import")
+
+
+def requeue_job(config:{}, commands=[], type:str=None):
 
     if len(commands) == 0 or commands[0] == 'help':
         print("requests: requeue job-id new-state")
@@ -542,11 +572,14 @@ def requeue_job(config:{}, commands=[]):
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state  = args_utils.get_or_fail(commands, "New job state is required" )
 
+    if type == 'export':
+        tracker = config['master_api'].requeue_export( job_id, {'state':state})
+    elif type == 'import':
+        tracker = config['master_api'].requeue_import( job_id, {'state':state})
+    else:
+        raise RuntimeError(f"Unknown type {type}, allowed are import and export")
 
-    tracker = config['master_api'].requeue_export( job_id, {'state':state})
-
-
-def restate_job(config:{}, commands=[]):
+def restate_job(config:{}, commands=[], type:str=None):
 
     if len(commands) == 0 or commands[0] == 'help':
         print("requests: queue job-id [new-state]")
@@ -555,7 +588,13 @@ def restate_job(config:{}, commands=[]):
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state  = args_utils.get_or_fail(commands, "New job state is required" )
 
-    config['master_api'].update_export(job_id, {'state':state})
+    if type == 'export':
+        config['master_api'].update_export(job_id, {'state':state})
+    elif type == 'import':
+        config['master_api'].update_import(job_id, {'state':state})
+    else:
+        raise RuntimeError(f"Unknown type {type}, allowed are import and export")
+
 
 
 def list_galaxy_info(config, commands):
@@ -672,7 +711,7 @@ def nga_stuck_jobs(config, commands):
         errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
         print(errors)
 
-def nga_unstick_jobs(config, commands):
+def nga_unstick_export_jobs(config, commands):
 
     timerange = args_utils.get_or_default(commands, "")
     time_delta = 0
@@ -697,11 +736,11 @@ def nga_unstick_jobs(config, commands):
 
             if time_delta:
                 if time_delta <= create_time:
-                    queue_job(config,  [request['id']])
+                    queue_export_job(config,  [request['id']])
                     if verbose:
                         print(f"Unstuck job {request['id']} for {request['user_email']} on {request['instance']}")
             else:
-                queue_job(config,  [request['id']])
+                queue_export_job(config,  [request['id']])
                 if verbose:
                     print(f"Unstuck job {request['id']} for {request['user_email']} on {request['instance']}")
 

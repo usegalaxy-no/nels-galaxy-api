@@ -827,7 +827,8 @@ class RequeueImport (GalaxyHandler):
         state = values['state']
         try:
             tracking_id = utils.decrypt_value(tracking_id)
-            tracking = db.get_export_tracking(tracking_id)
+            tracking = db.get_import_tracking(tracking_id)
+            print( tracking )
             tracking['state'] = state
 
             for k in ['id', 'create_time', 'update_time']:
@@ -841,6 +842,7 @@ class RequeueImport (GalaxyHandler):
             self.send_response_200()
         except Exception as e:
             logger.error(f"Request import tracking error {e}")
+            import stacktrace
             self.send_response_404()
 
 
@@ -890,6 +892,7 @@ class Import (GalaxyHandler):
 
 
         state = states.get( state_id)
+        print( "HARD CODED USER ID! FOR STATE!")
         state = {'user': 4}
 
         if state is None:
@@ -1000,7 +1003,7 @@ class ImportsList(Export):
         if user is not None:
             users = db.get_user(email=user)
             if len(users):
-                filter['user_id'] = user[0]['id']
+                filter['user_id'] = users[0]['id']
 
         exports = utils.encrypt_ids(db.get_import_trackings(**filter))
         self.send_response(data=exports)
