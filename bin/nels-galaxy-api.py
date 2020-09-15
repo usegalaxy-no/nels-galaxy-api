@@ -247,6 +247,16 @@ class User(GalaxyHandler):
             return self.send_response_404()
 
         user = user[0]
+
+        api_key = db.get_api_key( user[ 'id' ])
+
+        if api_key is None or api_key == []:
+            new_key = utils.create_uuid(32)
+            db.add_api_key(user['id'], new_key)
+
+        user['api_key'] = api_key
+
+
         print( user )
 
         user = utils.encrypt_ids( user )
@@ -262,23 +272,23 @@ class UserApikey(GalaxyHandler):
 
     def get(self, user_email:str=None):
         logger.debug("get user api-key")
-#        self.check_token()
+        self.check_token()
         user = db.get_user(email=user_email)
         if user is None or user == []:
             return self.send_response_404()
         print( user )
         user = user[0]
         api_key = db.get_api_key( user[ 'id' ])
-        print( api_key )
-        print( api_key )
+#        print( api_key )
+#        print( api_key )
 
         if api_key is None or api_key == []:
             new_key = utils.create_uuid(32)
             db.add_api_key(user['id'], new_key)
 
-            return self.send_response(data={'key':new_key})
+            return self.send_response(data={'api_key':new_key})
 
-        return self.send_response(data={'key':api_key['key']})
+        return self.send_response(data={'api_key':api_key['key']})
 
 
 
