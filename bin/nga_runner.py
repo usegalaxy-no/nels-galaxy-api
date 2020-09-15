@@ -18,6 +18,8 @@ import traceback
 import certifi
 
 
+
+
 from bioblend.galaxy import GalaxyInstance
 
 
@@ -30,7 +32,7 @@ import kbr.version_utils as version_utils
 import kbr.log_utils as logger
 
 import nels_galaxy_api.api_requests as api_requests
-
+import nels_galaxy_api.utils as utils
 
 version = version_utils.as_string()
 
@@ -215,7 +217,9 @@ def run_push_export( tracker ):
         create_time = re.sub(r'\.\d+', '', create_time)
 #        logger.debug( f'{tracker_id} Create time {create_time}')
         history['name'] = history['name'].replace(" ", "_")
-        dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
+
+        dest_file = f"{tracker['destination']}/{history['name']}-{create_time}"
+        dest_file = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), instance['id'])
         logger.debug(f"{tracker_id} dest file: {dest_file}")
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
@@ -268,6 +272,8 @@ def get_history_from_nels( tracker ):
     try:
 
         master_api.update_import(tracker_id, {'state': 'nels-transfer-running'})
+
+
 
         tmpfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['source'])
 
