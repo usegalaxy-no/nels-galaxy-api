@@ -240,6 +240,7 @@ class User(GalaxyHandler):
     def get(self, user_id):
         logger.debug("get user")
         self.check_token()
+        user_id = utils.decrypt_value( user_id )
 
         user = db.get_user(id=user_id)
         if user is None or user == []:
