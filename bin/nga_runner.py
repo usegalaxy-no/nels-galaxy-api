@@ -269,7 +269,7 @@ def get_history_from_nels( tracker ):
 
         master_api.update_import(tracker_id, {'state': 'nels-transfer-running'})
 
-        outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['filename'])
+        outfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['source'])
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"{tracker_id} ssh info {ssh_info}")
