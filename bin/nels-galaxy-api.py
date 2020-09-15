@@ -1032,7 +1032,7 @@ def main():
             (r"/user/imports/?$", UserImportsList), #
 
 
-            (r'/user/?$', User), #Done
+#            (r'/user/?$', User), #Done
 
 
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done

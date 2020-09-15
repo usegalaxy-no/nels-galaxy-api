@@ -307,7 +307,7 @@ def get_imports( config:{}, user_email:str=None):
 
         brief.append({'user': user['email'], 'imports':  nr_imports })
         for tmp_import in tmp_imports:
-            print( tmp_import )
+#            print( tmp_import )
             if not verbose:
                 del tmp_import['import_id']
                 del tmp_import['job_id']
@@ -357,12 +357,13 @@ def list_export_requests(config:{}, user:str=None, instance:str=None):
 
 def list_import_requests(config:{}, user:str=None):
     requests = []
-    brief     = []
 
     if user is not None:
         requests = config['master_api'].get_user_imports(user)
     else:
         requests = config['master_api'].get_imports()
+
+    print( requests )
 
     for request in requests:
 
@@ -476,13 +477,12 @@ def get_import_requests(config:{}, commands=[]):
 
         print("Help:")
         print("==========================")
-        print("requests: requests [all] ")
-        print("requests: requests user user-email [instance]")
-        print("requests: requests instance instance-name [email]")
+        print("requests: imports [all] ")
+        print("requests: imports user-email")
 
-        print("requests: requests queue ID [new-state]")
-        print("requests: requests requeue ID new-state")
-        print("requests: requests restate ID new-state")
+        print("requests: imports queue ID [new-state]")
+        print("requests: imports requeue ID new-state")
+        print("requests: imports restate ID new-state")
 
 
 def submit_mq_job(tracker_id:int, type:str) -> None:
