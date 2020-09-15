@@ -298,7 +298,7 @@ def import_history( tracker ):
         user = master_api.get_user( user_id )
         galaxy_instance = GalaxyInstance(master_url, key=user['api_key'], verify=certifi.where())
 
-        tyt = galaxy_instance.histories.import_history( tmpfile)
+        tyt = galaxy_instance.histories.import_history( tracker['tmpfile'])
         print( f'TYT {tyt}')
         master_api.update_export(tracker_id, {'state': 'history-import-triggered'})
         # track job!
