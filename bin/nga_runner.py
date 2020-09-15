@@ -301,6 +301,7 @@ def import_history( tracker ):
 
         user_id = tracker['user_id']
         user = master_api.get_user( user_id )
+        print( f"{master_url},{user['api_key']}, {tracker['tmpfile']}" )
         galaxy_instance = GalaxyInstance(master_url, key=user['api_key'], verify=certifi.where())
 
         tyt = galaxy_instance.histories.import_history( tracker['tmpfile'])
