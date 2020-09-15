@@ -435,7 +435,7 @@ class DB(object):
 
         for imp in imports:
             if imp['history_id'] not in cleaned_imports:
-                cleaned_imports[export['history_id']] = imp
+                cleaned_imports[imp['history_id']] = imp
 
             elif cleaned_imports[imp['history_id']]['create_time'] < imp['create_time']:
                 cleaned_imports[imp['history_id']] = imp

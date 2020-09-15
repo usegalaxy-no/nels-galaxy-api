@@ -304,10 +304,11 @@ class UserImports(GalaxyHandler):
     def endpoint(self):
         return ("/")
 
-    def get(self, user_email):
+    def get(self, user_id):
         logger.debug("get user imports")
         self.check_token()
-        user = db.get_user(email=user_email)
+        user_id = utils.decrypt_value( user_id )
+        user = db.get_user(id=user_id)
         if user is None or user == []:
             return self.send_response_401()
 
@@ -1024,7 +1025,7 @@ def main():
             (r'/users/?$', Users), #Done
             (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
             (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
-            (r"/user/({email_match})/imports/?$".format(email_match=string_utils.email_match), UserImports), # all, brief is default #Done
+            (r"/user/(\w+)/imports/?$", UserImports), # all, brief is default #Done
             (r"/user/({email_match})/api-key/?$".format(email_match=string_utils.email_match), UserApikey), # to test
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
