@@ -65,6 +65,10 @@ class ApiRequests( object ):
     def get_users(self) -> []:
         return self._request_get(f"{self._base_url}/users")
 
+    def get_user(self, user_id:str) -> []:
+        return self._request_get(f"{self._base_url}/user/{user_id}/")
+
+
     def get_session_exports(self) -> []:
         return self._request_get(f"{self._base_url}/user/exports/")
 

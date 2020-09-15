@@ -367,6 +367,13 @@ def list_import_requests(config:{}, user:str=None):
 
     for request in requests:
 
+        user = config['master_api'].get_user( request['user_id'])
+        if len(user):
+            request['user_email'] = user[0]['user_email']
+        else:
+            request['user_email'] = 'NA'
+
+
         request['update_time'] = readable_date(request['update_time'])
         request['create_time'] = readable_date(request['create_time'])
 

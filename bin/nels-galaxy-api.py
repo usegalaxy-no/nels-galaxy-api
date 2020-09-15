@@ -232,6 +232,24 @@ class Users(GalaxyHandler):
         return self.send_response(data=users)
 
 
+class User(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/user/ID/")
+
+    def get(self, user_id):
+        logger.debug("get user")
+        self.check_token()
+
+        user = db.get_user(id=user_id)
+        if user is None or user == []:
+            return self.send_response_404()
+        user = user[0]
+
+        user = utils.encrypt_ids( user )
+        return self.send_response(data=user)
+
+
 
 class UserApikey(GalaxyHandler):
 
@@ -1022,6 +1040,8 @@ def main():
 
             # for the cli...
             (r'/users/?$', Users), #Done
+            (r'/user/(\w+)/?$', User), #Done
+
             (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
             (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
             (r"/user/({email_match})/imports/?$".format(email_match=string_utils.email_match), UserImports), # all, brief is default #Done
@@ -1032,7 +1052,6 @@ def main():
             (r"/user/imports/?$", UserImportsList), #
 
 
-#            (r'/user/?$', User), #Done
 
 
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
@@ -1070,7 +1089,7 @@ def main():
                  (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList), # user_email # done
                  (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),  # user_email, instance. If user_email == all, export all entries for instance # done
                  (r"/exports/(all)/(\w+)/?$", ExportsList), # done
-                 (r"/imports/(\w+)/?$", ImportsList), # user_id #
+                 (r"/imports/({email_match})/?$".format(email_match=string_utils.email_match), ImportsList), # user_id #
                  # user_email, instance. If user_email == all, export all entries for instance
 
                  (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key?) # done
