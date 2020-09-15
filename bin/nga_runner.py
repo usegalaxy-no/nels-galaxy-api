@@ -295,10 +295,11 @@ def import_history( tracker ):
 
 
         user_id = tracker['user_id']
-        user_api_key = db.get_api_key(user_id)
-        galaxy_instance = GalaxyInstance(master_url, key=user_api_key['key'], verify=certifi.where())
+        user = master_api.get_user( user_id )
+        galaxy_instance = GalaxyInstance(master_url, key=user['api_key'], verify=certifi.where())
 
-        galaxy_instance.histories.import_history( tmp_file)
+        tyt = galaxy_instance.histories.import_history( tmp_file)
+        print( f'TYT {tyt}')
         master_api.update_export(tracker_id, {'state': 'history-import-triggered'})
         # track job!
 
