@@ -274,6 +274,7 @@ def get_history_from_nels( tracker ):
 
 
         tmpfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['id'])
+        print( f"TMPFILE {tmpfile}")
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"{tracker_id} ssh info {ssh_info}")
