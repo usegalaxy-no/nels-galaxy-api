@@ -301,13 +301,21 @@ def import_history( tracker ):
 
         user_id = tracker['user_id']
         user = master_api.get_user( user_id )
-        print( f"{master_url},{user['api_key']}, {tracker['tmpfile']}" )
+        print( f"LAST BLIP :::::::: {master_url},{user['key']}, {tracker['tmpfile']}" )
         galaxy_instance = GalaxyInstance(master_url, key=user['api_key'], verify=certifi.where())
 
         tyt = galaxy_instance.histories.import_history( tracker['tmpfile'])
         print( f'TYT {tyt}')
         master_api.update_export(tracker_id, {'state': 'history-import-triggered'})
         # track job!
+
+    except Exception as e:
+        import traceback
+        traceback.print_tb(e.__traceback__)
+
+        master_api.update_import(tracker_id, {'state': 'history-import-error'})
+        logger.debug(f" tracker-id:{tracker['id']} import history: {e}")
+
 
         while True:
 
