@@ -217,9 +217,7 @@ def run_push_export( tracker ):
         create_time = re.sub(r'\.\d+', '', create_time)
 #        logger.debug( f'{tracker_id} Create time {create_time}')
         history['name'] = history['name'].replace(" ", "_")
-
-        dest_file = f"{tracker['destination']}/{history['name']}-{create_time}"
-        dest_file = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), instance['id'])
+        dest_file = f"{tracker['destination']}/{history['name']}-{create_time}.tgz"
         logger.debug(f"{tracker_id} dest file: {dest_file}")
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
@@ -275,12 +273,12 @@ def get_history_from_nels( tracker ):
 
 
 
-        tmpfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['source'])
+        tmpfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['id'])
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
         logger.debug(f"{tracker_id} ssh info {ssh_info}")
 
-        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{tracker["source"]}" tmpfile'
+        cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{tracker["source"]}" {tmpfile}'
         #        logger.debug(f"CMD: {cmd}")
         run_cmd(cmd, 'pull data')
         master_api.update_import(tracker_id, {'state': 'nels-transfer-ok', 'tmpfile': tmpfile})
