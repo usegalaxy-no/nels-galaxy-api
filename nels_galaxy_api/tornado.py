@@ -25,7 +25,7 @@ class UUIDEncoder(json.JSONEncoder):
             return obj.hex
         if isinstance(obj, Decimal):
             # if the obj is decimal, we simply return the value of uuid
-            return obj.value
+            return float(obj)
         if isinstance(obj, (datetime.date, datetime.datetime)):
             return obj.isoformat()
 

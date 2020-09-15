@@ -246,6 +246,7 @@ class User(GalaxyHandler):
         if user is None or user == []:
             return self.send_response_404()
 
+        user = user[0]
         print( user )
 
         user = utils.encrypt_ids( user )
@@ -997,7 +998,9 @@ class ImportsList(Export):
             return self.send_response_400(data="Invalid value for state {}".format(filter['state']))
 
         if user is not None:
-            filter['user_email'] = user
+            users = db.get_user(email=user)
+            if len(users):
+                filter['user_id'] = user[0]['id']
 
         exports = utils.encrypt_ids(db.get_import_trackings(**filter))
         self.send_response(data=exports)

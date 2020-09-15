@@ -368,8 +368,9 @@ def list_import_requests(config:{}, user:str=None):
     for request in requests:
 
         user = config['master_api'].get_user( request['user_id'])
+        print( user )
         if len(user):
-            request['user_email'] = user[0]['user_email']
+            request['user_email'] = user['email']
         else:
             request['user_email'] = 'NA'
 
