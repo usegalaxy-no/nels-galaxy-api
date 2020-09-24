@@ -139,22 +139,24 @@ def run_history_export( tracker ):
         master_api.update_export(tracker['id'], {'state': 'bioblend-error'})
         return
 
-    while True:
-        try:
-            export_id = galaxy_instance.histories.export_history(tracker['history_id'], maxwait=1, gzip=True)
-        except Exception as e:
-            logger.error(f"{tracker['id']}/{tracker['instance']}: bioblend trigger export {e}")
-            master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
-            return
+    try:
+        export_id = galaxy_instance.histories.export_history(tracker['history_id'], maxwait=1, gzip=True)
+    except Exception as e:
+        logger.error(f"{tracker['id']}/{tracker['instance']}: bioblend trigger export {e}")
+        master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
+        return
 
+    while True:
 
         if export_id is None or export_id == '':
             history = instances[instance]['api'].get_history_export(history_id=tracker['history_id'])
             logger.debug(f"history id not found !{history}")
             if history is not None and history != '':
                 master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
+                export_id = history['export_id']
             else:
                 logger.error(f"{tracker['id']}: No history id associated with {export_id}")
+                raise RuntimeError(f"{tracker['id']}: No history id associated with {export_id}")
         else:
 #            print( f" API :: {instance['api']}" )
             export = instances[instance]['api'].get_history_export(export_id=export_id)
