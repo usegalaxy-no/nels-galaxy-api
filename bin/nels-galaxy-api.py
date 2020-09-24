@@ -33,7 +33,7 @@ DEV = False
 db = nels_galaxy_db.DB()
 galaxy_file_path = None
 
-
+galaxy_url = None
 master_url = None
 instance_id = None
 nels_url = None
@@ -118,7 +118,8 @@ def init(config_file: dict) -> None:
     tornado.set_token(config.get('key', None))
     api_requests.set_token(config.get('proxy_key', None))
 
-    global master_url, nels_url, instance_id
+    global galaxy_url, master_url, nels_url, instance_id
+    galaxy_url = config['galaxy_url'].rstrip("/")
     master_url = config['master_url'].rstrip("/")
     instance_id = config['id'].rstrip("/")
     nels_url = config['nels_url'].rstrip("/")
@@ -916,7 +917,7 @@ class Import (GalaxyHandler):
             tracking_id = self._register_import(user, nels_id, location)
             tracking_id = utils.encrypt_value( tracking_id )
             submit_mq_job(tracking_id, "import")
-            self.redirect(master_url)
+            self.redirect(galaxy_url)
 
         except Exception as e:
 
