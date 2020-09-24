@@ -150,7 +150,7 @@ def run_history_export( tracker ):
 
         if export_id is None or export_id == '':
             history = instances[instance]['api'].get_history_export(history_id=tracker['history_id'])
-            logger.debug("export id not found !")
+            logger.debug(f"history id not found !{history}")
             if history is not None and history != '':
                 master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
