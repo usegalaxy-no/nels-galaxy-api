@@ -120,7 +120,7 @@ def run_history_export( tracker ):
     logger.info(f'{tracker["id"]}: history export start')
 
     instance = tracker['instance']
-    print( instance )
+#    print( instance )
     try:
         info = instances[instance]['api'].get_info()
         if info['free_gb'] < 30:
@@ -129,7 +129,7 @@ def run_history_export( tracker ):
             master_api.update_export(tracker['id'], {'state': 'disk-space-error'})
             return
     except Exception as e:
-        traceback.print_tb(e.__traceback__)
+#        traceback.print_tb(e.__traceback__)
         logger.error( f"{tracker['id']}: Fetch info error {e}")
 
     try:
@@ -187,8 +187,8 @@ def run_fetch_export(tracker):
         logger.debug(f'{tracker["id"]}: fetch-cmd: {cmd}')
         run_cmd(cmd)
         logger.debug('{tracker["id"]}: fetch cmd done')
-        submit_mq_job(tracker_id, "export")
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-ok'})
+        submit_mq_job(tracker_id, "export")
 
     except Exception as e:
         master_api.update_export(tracker_id, {'tmpfile': outfile, 'state': 'fetch-error', 'log': str(e)})
@@ -304,8 +304,9 @@ def import_history( tracker ):
         print( f"LAST BLIP :::::::: {master_url},{user['api_key']}, {tracker['tmpfile']}" )
         galaxy_instance = GalaxyInstance(master_url, key=user['api_key'], verify=certifi.where())
 
+        print("Starting import transfer")
         tyt = galaxy_instance.histories.import_history( tracker['tmpfile'])
-        print( f'TYT {tyt}')
+        print("import transfer done")
         master_api.update_export(tracker_id, {'state': 'history-import-triggered'})
         # track job!
 
@@ -316,43 +317,7 @@ def import_history( tracker ):
         master_api.update_import(tracker_id, {'state': 'history-import-error'})
         logger.debug(f" tracker-id:{tracker['id']} import history: {e}")
 
-
-        while True:
-
-            try:
-                import_id = galaxy_instance.histories.import_history( tmp_file)
-            except Exception as e:
-                logger.error(f"{tracker['id']}/{tracker['instance']}: bioblend trigger export {e}")
-                master_api.update_export(tracker['id'], {'state': 'bioblend-error', 'log': e['err_msg']})
-                return
-
-            print( import_id )
-
-            #
-            # if import_id is None or export_id == '':
-            #     history = instances[instance]['api'].get_history_export(history_id=tracker['history_id'])
-            #
-            #     if history is not None and history != '':
-            #         master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
-            #     else:
-            #         logger.error(f"{tracker['id']}: No history id associated with {export_id}")
-            # else:
-            #     #            print( f" API :: {instance['api']}" )
-            #     import = instances[instance]['api'].get_history_export(export_id=export_id)
-            #     master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
-            #
-            #     if export['state'] in ['ok', 'error']:
-            #     submit_mq_job(tracker['id'])
-            #     logger.info(f'{tracker["id"]}: history export done')
-            #
-            #     return
-
-            break
-
-        time.sleep( sleep_time )
-
-
-
+    try:
         # clean up!
         cmd = f"rm {tracker['tmpfile']}"
         master_api.update_export(tracker_id, {'state': 'finished'})
