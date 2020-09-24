@@ -150,7 +150,7 @@ def run_history_export( tracker ):
 
         if export_id is None or export_id == '':
             history = instances[instance]['api'].get_history_export(history_id=tracker['history_id'])
-            print("export id not found !")
+            logger.debug("export id not found !")
             if history is not None and history != '':
                 master_api.update_export(tracker['id'], {"export_id": history['export_id'], 'state': 'new'})
             else:
@@ -158,7 +158,7 @@ def run_history_export( tracker ):
         else:
 #            print( f" API :: {instance['api']}" )
             export = instances[instance]['api'].get_history_export(export_id=export_id)
-            print( export )
+            logger.debug( export )
             master_api.update_export(tracker['id'], {"export_id": export_id, 'state': export['state']})
 
             if export['state'] in ['ok', 'error']:
@@ -170,6 +170,7 @@ def run_history_export( tracker ):
             break
 
         time.sleep( sleep_time )
+        logger.debug('sleep cycle done')
 
 def run_fetch_export(tracker):
 
