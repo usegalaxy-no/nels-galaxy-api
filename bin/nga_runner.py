@@ -169,8 +169,8 @@ def run_history_export( tracker ):
 
                 return
 
-            break
 
+        print("Pre sleep")
         time.sleep( sleep_time )
         logger.debug('sleep cycle done')
 
@@ -401,7 +401,7 @@ def main():
 
 
     if args.logfile:
-        logger.init(name='nga_runner', log_file=args.logfile)
+        logger.init(name='nga_runner', log_file=args.logfile, rotate_logs=True)
     else:
         logger.init(name='nga_runner')
 
