@@ -98,7 +98,9 @@ def ping_hosts( config:{}):
         if config['instances'][ instance_id]['name'] == instance_id:
             continue
 
+
         instance = config['instances'][ instance_id]
+#        print( instance['name'])
         ping = {'name': instance['name'], 'reachable': False, 'secure reachable': False, 'api-version': 'NA', 'disk free': 'NA', 'bioblend':False}
         try:
             base_info = instance['api'].get_base()
@@ -312,6 +314,7 @@ def get_imports( config:{}, user_email:str=None):
                 del tmp_import['import_id']
                 del tmp_import['job_id']
                 del tmp_import['history_id']
+#                del tmp_import['tmpfile']
 
             tmp_import['user'] = user['email']
             tmp_import['created'] = readable_date(tmp_import['create_time'])
@@ -379,7 +382,7 @@ def list_import_requests(config:{}, user:str=None):
         request['create_time'] = readable_date(request['create_time'])
 
         if not verbose:
-            for k in ['nels_id', 'source', 'user_id']:
+            for k in ['nels_id', 'source', 'user_id', 'tmpfile', 'import_id']:
                 del request[k]
 
 
@@ -786,7 +789,7 @@ def utils(config, commands):
         nga_stuck_jobs(config, commands)
         return
     elif sub_command == 'unstick':
-        nga_unstick_jobs(config, commands)
+        nga_unstick_export_jobs(config, commands)
         return
     elif sub_command == 'queue-flush':
         mq.flush()
@@ -795,6 +798,7 @@ def utils(config, commands):
         print(f"Currently {mq.queue_length('default')} messages in the MQueue")
         return
     elif sub_command == 'decrypt':
+        global galaxy_config
         galaxy_config = config_utils.readin_config_file( galaxy_config)
         if 'id_secret' not in galaxy_config['galaxy']:
             id_secret = "USING THE DEFAULT IS NOT SECURE!"
