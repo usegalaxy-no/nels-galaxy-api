@@ -612,7 +612,6 @@ class ExportsListProxy(GalaxyHandler):
             trackings = db.get_export_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
         else:
             logger.debug('accessing the data using the proxy')
-            #ERROR HERE, WRONG URL
             trackings, _ = api_requests.get_user_instance_exports(master_url, user['email'], instance_id)
 
         results = []
@@ -904,8 +903,6 @@ class Import (GalaxyHandler):
 
 
         state = states.get( state_id)
-        print( "HARD CODED USER ID! FOR STATE!")
-        state = {'user': 4}
 
         if state is None:
             self.send_response_404()
@@ -1060,7 +1057,6 @@ def main():
 
             # for the cli...
             (r'/users/?$', Users), #Done
-            (r'/user/(\w+)/?$', User), #Done
 
             (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
             (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
@@ -1070,6 +1066,7 @@ def main():
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy), # done
             (r"/user/imports/?$", UserImportsList), #
+            (r'/user/(\w+)/?$', User), #Done
 
 
 
