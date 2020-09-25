@@ -170,9 +170,8 @@ def run_history_export( tracker ):
                 return
 
 
-        print("Pre sleep")
+        logger.debug("entering sleep cycle")
         time.sleep( sleep_time )
-        logger.debug('sleep cycle done')
 
 def run_fetch_export(tracker):
 
@@ -320,20 +319,14 @@ def import_history( tracker ):
 
         master_api.update_import(tracker_id, {'state': 'history-import-error'})
         logger.debug(f" tracker-id:{tracker['id']} import history: {e}")
+        return
 
-    try:
-        # clean up!
-        cmd = f"rm {tracker['tmpfile']}"
-        master_api.update_export(tracker_id, {'state': 'finished'})
-        logger.debug(f"CMD: {cmd}")
-        run_cmd(cmd, 'cleanup')
-        logger.info(f'{tracker_id}: history import done')
-    except Exception as e:
-        import traceback
-        traceback.print_tb(e.__traceback__)
-
-        master_api.update_export(tracker_id, {'state': 'nels-transfer-error'})
-        logger.debug(f" tracker-id:{tracker['id']} transfer to NeLS error: {e}")
+    # clean up!
+    cmd = f"rm {tracker['tmpfile']}"
+    master_api.update_export(tracker_id, {'state': 'finished'})
+    logger.debug(f"CMD: {cmd}")
+    run_cmd(cmd, 'cleanup')
+    logger.info(f'{tracker_id}: history import done')
 
 
 
