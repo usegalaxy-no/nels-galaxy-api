@@ -4,7 +4,6 @@ import argparse
 import sys
 import os
 import time
-import pprint as pp
 import json
 
 from tornado import iostream
@@ -25,6 +24,7 @@ import nels_galaxy_api.utils as utils
 import nels_galaxy_api.states as states
 import nels_galaxy_api.api_requests as api_requests
 import warnings
+
 warnings.simplefilter("ignore")
 
 version = version_utils.as_string()
@@ -46,7 +46,6 @@ tos_grace_period = None
 # galaxy_config = None
 no_proxy = False  # The NGA-master does not need to use the proxy connections.
 mq = mq_utils.Mq()
-
 
 
 class GalaxyHandler(tornado.BaseHandler):
@@ -77,6 +76,7 @@ class GalaxyHandler(tornado.BaseHandler):
         user = db.get_user_from_session(session_key)
         return user
 
+
 def galaxy_init(galaxy_config: dict) -> None:
     logger.info("init from galaxy-config ")
 
@@ -102,8 +102,6 @@ def galaxy_init(galaxy_config: dict) -> None:
     utils.init(id_secret)
 
     return
-
-
 
 
 def init(config_file: dict) -> None:
@@ -157,22 +155,20 @@ def init(config_file: dict) -> None:
             instance = tmp_instances[iid]
 
             instances[instance['name']] = instance
-            instances[instance['name']]['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"), instance['nga_key'])
+            instances[instance['name']]['api'] = api_requests.ApiRequests(instance['nga_url'].rstrip("/"),
+                                                                          instance['nga_key'])
             if instance['proxy_key'] in proxy_keys.keys():
                 logger.warn(f"Proxy key for {instance['name']} is also used for {proxy_keys[instance['proxy_key']]}")
 
             proxy_keys[instance['proxy_key']] = instance['name']
 
-
-
-#    global mq
+    #    global mq
 
     return config
 
 
-def submit_mq_job(tracking_id:int, type:str ) -> None:
-
-    payload = {'tracker_id': tracking_id, 'type':type}
+def submit_mq_job(tracking_id: int, type: str) -> None:
+    payload = {'tracker_id': tracking_id, 'type': type}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -229,7 +225,7 @@ class Users(GalaxyHandler):
         logger.debug("get users")
         self.check_token()
 
-        users = utils.encrypt_ids( db.get_users() )
+        users = utils.encrypt_ids(db.get_users())
         return self.send_response(data=users)
 
 
@@ -241,7 +237,7 @@ class User(GalaxyHandler):
     def get(self, user_id):
         logger.debug("get user")
         self.check_token()
-        user_id = utils.decrypt_value( user_id )
+        user_id = utils.decrypt_value(user_id)
 
         user = db.get_user(id=user_id)
         if user is None or user == []:
@@ -249,7 +245,7 @@ class User(GalaxyHandler):
 
         user = user[0]
 
-        api_key = db.get_api_key( user[ 'id' ])
+        api_key = db.get_api_key(user['id'])
 
         if api_key is None or api_key == []:
             new_key = utils.create_uuid(32)
@@ -258,40 +254,36 @@ class User(GalaxyHandler):
         else:
             user['api_key'] = api_key['key']
 
+        print(user)
 
-        print( user )
-
-        user = utils.encrypt_ids( user )
+        user = utils.encrypt_ids(user)
         return self.send_response(data=user)
-
 
 
 class UserApikey(GalaxyHandler):
 
     def endpoint(self):
-        return ("/user/EMAIL/api-key") # uses session
+        return ("/user/EMAIL/api-key")  # uses session
 
-
-    def get(self, user_email:str=None):
+    def get(self, user_email: str = None):
         logger.debug("get user api-key")
         self.check_token()
         user = db.get_user(email=user_email)
         if user is None or user == []:
             return self.send_response_404()
-        print( user )
+        print(user)
         user = user[0]
-        api_key = db.get_api_key( user[ 'id' ])
-#        print( api_key )
-#        print( api_key )
+        api_key = db.get_api_key(user['id'])
+        #        print( api_key )
+        #        print( api_key )
 
         if api_key is None or api_key == []:
             new_key = utils.create_uuid(32)
             db.add_api_key(user['id'], new_key)
 
-            return self.send_response(data={'api_key':new_key})
+            return self.send_response(data={'api_key': new_key})
 
-        return self.send_response(data={'api_key':api_key['key']})
-
+        return self.send_response(data={'api_key': api_key['key']})
 
 
 class UserHistories(GalaxyHandler):
@@ -350,6 +342,7 @@ class UserImports(GalaxyHandler):
         user_imports = utils.encrypt_ids(db.get_user_history_imports(user['id']))
         return self.send_response(data=user_imports)
 
+
 class HistoryExportRequest(GalaxyHandler):
 
     def endpoint(self):
@@ -363,13 +356,13 @@ class HistoryExportRequest(GalaxyHandler):
             return self.send_response_401()
 
         data = {'user': user['email'], 'history_id': utils.encrypt_value(user['current_history_id'])}
-        uuid = states.set( data )
+        uuid = states.set(data)
 
         redirect_url = f"{nels_url}/welcome.xhtml"
         redirect_url += f"?appCallbackUrl={master_url}/export/" + instance_id + "/" + uuid + "/"
 
         if DEV:
-            print( redirect_url )
+            print(redirect_url)
             return
 
         self.redirect(redirect_url)
@@ -388,23 +381,22 @@ class HistoryImportRequest(GalaxyHandler):
             return self.send_response_401()
 
         data = {'user': user['id']}
-        uuid = states.set( data )
+        uuid = states.set(data)
 
         redirect_url = f"{nels_url}/welcome.xhtml"
         redirect_url += f"?nels_file_browser&appCallbackUrl={master_url}/import/" + uuid + "/"
 
         if DEV:
-            print( redirect_url )
+            print(redirect_url)
             return
 
         self.redirect(redirect_url)
+
 
 # https://test-fe.cbu.uib.no/nels/welcome.xhtml?nels_file_browser&appCallbackUrl=http://localhost:8008/import/2345/
 # https://test-fe.cbu.uib.no/nels/welcome.xhtml?nels_file_browser&appCallbackUrl=http%3A//test-fe.cbu.uib.no/galaxy/nga/import
 # nelsId: 953
 # selectedFiles: Personal/Unnamed_history-20200904T122859.tgz
-
-
 
 
 class HistoryExport(GalaxyHandler):
@@ -434,6 +426,7 @@ class HistoryExport(GalaxyHandler):
             return self.send_response(data=export)
         else:
             return self.send_response_404()
+
 
 class HistoryImport(GalaxyHandler):
 
@@ -491,6 +484,7 @@ class HistoryExportsList(GalaxyHandler):
 
         exports = utils.list_encrypt_ids(exports)
         return self.send_response(data=exports)
+
 
 class HistoryImportsList(GalaxyHandler):
 
@@ -608,7 +602,7 @@ class ExportsListProxy(GalaxyHandler):
         # cannot proxy to it-self, read directly from the database
         if no_proxy:
             logger.debug('accessing the data directly')
-#            print( user )
+            #            print( user )
             trackings = db.get_export_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
         else:
             logger.debug('accessing the data using the proxy')
@@ -628,6 +622,7 @@ class ExportsListProxy(GalaxyHandler):
 
         return self.send_response(data=results)
 
+
 class UserImportsList(GalaxyHandler):
 
     def endpoint(self):
@@ -642,17 +637,15 @@ class UserImportsList(GalaxyHandler):
             self.send_response_404()
 
         logger.debug('accessing the data directly')
-            #            print( user )
+        #            print( user )
         trackings = db.get_import_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
 
         results = []
         for tracking in trackings:
-
             del tracking['history_id']
-            results.append( tracking )
+            results.append(tracking)
 
         return self.send_response(data=results)
-
 
 
 class ProxyTest(GalaxyHandler):
@@ -706,7 +699,7 @@ class Tos(GalaxyHandler):
         return self.send_response_404()
 
 
-class RequeueExport (GalaxyHandler):
+class RequeueExport(GalaxyHandler):
 
     def endpoint(self):
         return ("/export/ID/requeue/")
@@ -715,7 +708,6 @@ class RequeueExport (GalaxyHandler):
 
         logger.debug("requeue export tracking")
         self.check_token()
-
 
         values = self.post_values()
         self.require_arguments(values, ['state'])
@@ -726,13 +718,12 @@ class RequeueExport (GalaxyHandler):
             tracking['state'] = state
 
             for k in ['id', 'create_time', 'update_time']:
-                del tracking[ k ]
+                del tracking[k]
 
             tracking['log'] = f"requeue export tracker {tracking_id} and changed state to {state}"
             tracking_id = db.add_export_tracking(tracking)
             tracking_id = utils.encrypt_value(tracking_id)
             submit_mq_job(tracking_id, "export")
-
 
             self.send_response_200()
         except Exception as e:
@@ -740,8 +731,7 @@ class RequeueExport (GalaxyHandler):
             self.send_response_404()
 
 
-
-class Export (GalaxyHandler):
+class Export(GalaxyHandler):
 
     def endpoint(self):
         return ("/export/")
@@ -765,7 +755,6 @@ class Export (GalaxyHandler):
         db.update_export_tracking(tracking_id, data)
         return self.send_response_204()
 
-
     def _register_export(self, instance: str, user: str, history_id: str, nels_id: int, destination: str):
         logger.debug("registering export")
         tracking = {'instance': instance,
@@ -782,30 +771,29 @@ class Export (GalaxyHandler):
 
     def post(self, instance, state_id):
 
-        #logger.debug(f"POST VALUES: {self.request.body}")
+        # logger.debug(f"POST VALUES: {self.request.body}")
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
-
         if instance == instance_id:
-            logger.debug( "Direct access to state")
-            state = states.get( state_id)
+            logger.debug("Direct access to state")
+            state = states.get(state_id)
         else:
-            logger.debug( "Callback access to state")
-            state = instances[ instance]['api'].get_state(state_id)
+            logger.debug("Callback access to state")
+            state = instances[instance]['api'].get_state(state_id)
 
         if state is None:
             self.send_response_404()
 
-        logger.debug( f"State info for export: {state}")
+        logger.debug(f"State info for export: {state}")
 
         try:
             instance_name = instances[instance]['name']
-            user = state[ 'user' ]
-            history_id = state[ 'history_id' ]
+            user = state['user']
+            history_id = state['history_id']
             tracking_id = self._register_export(instance_name, user, history_id, nels_id, location)
 
-            tracking_id = utils.encrypt_value( tracking_id )
+            tracking_id = utils.encrypt_value(tracking_id)
 
             submit_mq_job(tracking_id, "export")
 
@@ -815,14 +803,14 @@ class Export (GalaxyHandler):
         except Exception as e:
 
             logger.error(f"Error during export registation: {e}")
-            logger.debug( f"State info for export: {state}")
-            logger.debug( f"nels_id: {nels_id}")
-            logger.debug( f"location: {location}")
+            logger.debug(f"State info for export: {state}")
+            logger.debug(f"nels_id: {nels_id}")
+            logger.debug(f"location: {location}")
 
             self.send_response_400()
 
 
-class RequeueImport (GalaxyHandler):
+class RequeueImport(GalaxyHandler):
 
     def endpoint(self):
         return ("/import/ID/requeue/")
@@ -832,23 +820,22 @@ class RequeueImport (GalaxyHandler):
         logger.debug("requeue import tracking")
         self.check_token()
 
-
         values = self.post_values()
         self.require_arguments(values, ['state'])
         state = values['state']
         try:
             tracking_id = utils.decrypt_value(tracking_id)
             tracking = db.get_import_tracking(tracking_id)
-            print( tracking )
+            print(tracking)
             tracking['state'] = state
 
             for k in ['id', 'create_time', 'update_time']:
-                del tracking[ k ]
+                del tracking[k]
 
             tracking['log'] = f"requeue import tracker {tracking_id} and changed state to {state}"
             tracking_id = db.add_import_tracking(tracking)
             tracking_id = utils.encrypt_value(tracking_id)
-            submit_mq_job(tracking_id, "import" )
+            submit_mq_job(tracking_id, "import")
 
             self.send_response_200()
         except Exception as e:
@@ -857,8 +844,7 @@ class RequeueImport (GalaxyHandler):
             self.send_response_404()
 
 
-
-class Import (GalaxyHandler):
+class Import(GalaxyHandler):
 
     def endpoint(self):
         return ("/import/")
@@ -882,7 +868,6 @@ class Import (GalaxyHandler):
         db.update_import_tracking(tracking_id, data)
         return self.send_response_204()
 
-
     def _register_import(self, user_id: int, nels_id: int, source: str):
         logger.debug("registering export")
         tracking = {'user_id': user_id,
@@ -901,37 +886,34 @@ class Import (GalaxyHandler):
         nels_id = int(self.get_body_argument("nelsId", default=None))
         location = self.get_body_argument("selectedFiles", default=None)
 
-
-        state = states.get( state_id)
+        state = states.get(state_id)
 
         if state is None:
             self.send_response_404()
 
-        logger.debug( f"State info for import: {state}")
+        logger.debug(f"State info for import: {state}")
 
         try:
-            user = state[ 'user' ]
+            user = state['user']
             tracking_id = self._register_import(user, nels_id, location)
-            tracking_id = utils.encrypt_value( tracking_id )
+            tracking_id = utils.encrypt_value(tracking_id)
             submit_mq_job(tracking_id, "import")
             self.redirect(galaxy_url)
 
         except Exception as e:
 
             logger.error(f"Error during import registation: {e}")
-            logger.debug( f"State info for import: {state}")
-            logger.debug( f"nels_id: {nels_id}")
-            logger.debug( f"location: {location}")
+            logger.debug(f"State info for import: {state}")
+            logger.debug(f"nels_id: {nels_id}")
+            logger.debug(f"location: {location}")
 
             self.send_response_400()
-
 
 
 class Export_not_used(GalaxyHandler):
 
     def endpoint(self):
         return ("/export/")
-
 
     def _usegalaxy_export(self):
         user = self.get_user()
@@ -941,9 +923,6 @@ class Export_not_used(GalaxyHandler):
             current_history_id = utils.encrypt_value(str(current_history_id))
 
         return user['email'], current_history_id
-
-
-
 
 
 class ExportsList(Export):
@@ -977,11 +956,10 @@ class ExportsList(Export):
         if user is not None and user != 'all':
             filter['user_email'] = user
 
-#        pp.pprint( filter )
+        #        pp.pprint( filter )
 
         exports = utils.encrypt_ids(db.get_export_trackings(**filter))
         self.send_response(data=exports)
-
 
 
 class ImportsList(Export):
@@ -1024,8 +1002,6 @@ class ImportHandler(GalaxyHandler):
         return ("/import/")
 
 
-
-
 def main():
     parser = argparse.ArgumentParser(description='nels-galaxy-api: extending the functionality of galaxy')
 
@@ -1051,39 +1027,37 @@ def main():
     config = init(args.config_file)
 
     # Base functionality
-    urls = [('/', RootHandler), #Done
-            (r'/info/?$', Info), #Done
-            (r'/state/(\w+)/?$', State), #Done
+    urls = [('/', RootHandler),  # Done
+            (r'/info/?$', Info),  # Done
+            (r'/state/(\w+)/?$', State),  # Done
 
             # for the cli...
-            (r'/users/?$', Users), #Done
+            (r'/users/?$', Users),  # Done
 
-            (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories), #Done
-            (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports), # all, brief is default #Done
-            (r"/user/({email_match})/imports/?$".format(email_match=string_utils.email_match), UserImports), # all, brief is default #Done
-            (r"/user/({email_match})/api-key/?$".format(email_match=string_utils.email_match), UserApikey), # to test
+            (r"/user/({email_match})/histories/?$".format(email_match=string_utils.email_match), UserHistories),  # Done
+            (r"/user/({email_match})/exports/?$".format(email_match=string_utils.email_match), UserExports),
+            # all, brief is default #Done
+            (r"/user/({email_match})/imports/?$".format(email_match=string_utils.email_match), UserImports),
+            # all, brief is default #Done
+            (r"/user/({email_match})/api-key/?$".format(email_match=string_utils.email_match), UserApikey),  # to test
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
-            (r"/user/exports/?$", ExportsListProxy), # done
-            (r"/user/imports/?$", UserImportsList), #
-            (r'/user/(\w+)/?$', User), #Done
-
-
-
+            (r"/user/exports/?$", ExportsListProxy),  # done
+            (r"/user/imports/?$", UserImportsList),  #
+            (r'/user/(\w+)/?$', User),  # Done
 
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
             (r'/history/import/request/?$', HistoryImportRequest),  #
 
             (r'/history/export/(\w+)?$', HistoryExport),  # export_id, last one pr history is default # skip
-            (r'/history/export/?$',      HistoryExport),  # possible to search by history_id               # ship
+            (r'/history/export/?$', HistoryExport),  # possible to search by history_id               # ship
             (r'/history/import/(\w+)?$', HistoryImport),  # export_id, last one pr history is default # skip
-            (r'/history/import/?$',      HistoryImport),  # possible to search by history_id               # ship
-
+            (r'/history/import/?$', HistoryImport),  # possible to search by history_id               # ship
 
             (r'/history/exports/(all)/?$', HistoryExportsList),  # for the local instance, all, brief is default # done
-            (r'/history/exports/?$',       HistoryExportsList),  # for the local instance, all, brief is default       # done
+            (r'/history/exports/?$', HistoryExportsList),  # for the local instance, all, brief is default       # done
             (r'/history/imports/(all)/?$', HistoryImportsList),  # for the local instance, all, brief is default # done
-            (r'/history/imports/?$',       HistoryImportsList),  # for the local instance, all, brief is default       # done
+            (r'/history/imports/?$', HistoryImportsList),  # for the local instance, all, brief is default       # done
 
             (r'/history/download/(\w+)/?$', HistoryDownload),  # fetching exported histories                     # skip
 
@@ -1095,18 +1069,21 @@ def main():
 
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
-        logger.debug( "setting the master endpoints")
+        logger.debug("setting the master endpoints")
         urls += [(r'/export/(\w+)/requeue/?$', RequeueExport),  # requeue  export request
                  (r'/import/(\w+)/requeue/?$', RequeueImport),  # requeue  export request
 
-                 (r"/export/(\w+)/(\w+)/?$", Export), #instance-id, state-id (post) #done
+                 (r"/export/(\w+)/(\w+)/?$", Export),  # instance-id, state-id (post) #done
                  (r'/export/(\w+)/?$', Export),  # get or patch an export request # skip
-                 (r"/import/(\w+)/?$", Import), # state-id (post) #
+                 (r"/import/(\w+)/?$", Import),  # state-id (post) #
 
-                 (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList), # user_email # done
-                 (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),  # user_email, instance. If user_email == all, export all entries for instance # done
-                 (r"/exports/(all)/(\w+)/?$", ExportsList), # done
-                 (r"/imports/({email_match})/?$".format(email_match=string_utils.email_match), ImportsList), # user_id #
+                 (r"/exports/({email_match})/?$".format(email_match=string_utils.email_match), ExportsList),
+                 # user_email # done
+                 (r"/exports/({email_match})/(\w+)/?$".format(email_match=string_utils.email_match), ExportsList),
+                 # user_email, instance. If user_email == all, export all entries for instance # done
+                 (r"/exports/(all)/(\w+)/?$", ExportsList),  # done
+                 (r"/imports/({email_match})/?$".format(email_match=string_utils.email_match), ImportsList),
+                 # user_id #
                  # user_email, instance. If user_email == all, export all entries for instance
 
                  (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key?) # done
@@ -1121,16 +1098,14 @@ def main():
                  ]
 
     if DEV:
-        sid = states.set({'id':1234, 'name': 'tyt'})
-        logger.info( f"TEST STATE ID: {sid}")
+        sid = states.set({'id': 1234, 'name': 'tyt'})
+        logger.info(f"TEST STATE ID: {sid}")
 
     logger.info(f"Running on port: {config.get('port', 8008)}")
     try:
         tornado.run_app(urls, port=config.get('port', 8008))
     except KeyboardInterrupt:
         logger.info(f'stopping nels_galaxy_api')
-
-
 
 
 if __name__ == "__main__":
