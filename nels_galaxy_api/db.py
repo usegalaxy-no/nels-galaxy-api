@@ -97,7 +97,8 @@ class DB(object):
               update_time    TIMESTAMP,
               nels_id        INT,
               destination    VARCHAR(80),
-              tmpfile        VARCHAR(300)
+              tmpfile        VARCHAR(300),
+              show           BOOL DEFAULT 'true'
               );
             '''
         self._db.do(q)
@@ -112,7 +113,7 @@ class DB(object):
 
         self._db.add('nels_export_tracking', values)
         tracking_id = self._db.get_id('nels_export_tracking', **values)
-        self.add_export_tracking_log(tracking_id, state="Created", log=log)
+        self.add_export_tracking_log(tracking_id, state="Created", log
         return tracking_id
 
 
@@ -125,7 +126,8 @@ class DB(object):
             del values['log']
 
         self._db.update('nels_export_tracking', values, {'id': tracking_id})
-        self.add_export_tracking_log(tracking_id, state=values['state'], log=log)
+        if 'state' in values:
+            self.add_export_tracking_log(tracking_id, state=values['state'], log=log)
 
 
     def create_export_tracking_logs_table(self) -> None:
@@ -369,7 +371,8 @@ class DB(object):
               update_time    TIMESTAMP,
               nels_id        INT,
               source         VARCHAR(80),
-              tmpfile        VARCHAR(300)
+              tmpfile        VARCHAR(300),
+              show           BOOL DEFAULT 'true'
               );
             '''
         self._db.do(q)
