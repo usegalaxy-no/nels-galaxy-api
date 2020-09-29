@@ -324,6 +324,31 @@ class UserExports(GalaxyHandler):
         return self.send_response(data=user_exports)
 
 
+class UserExport(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/user/export/(ID)/")
+
+    def patch(self, tracking_id):
+        logger.debug("patch tracking details")
+        user = self.get_user()
+        if user is None:
+            self.send_response_404()
+        data = self.arguments()
+        self.require_arguments( data, ['show'])
+        # need to decrypt the id otherwise things blow up!
+        tracking_id = utils.decrypt_value(tracking_id)
+        tracking = db.get_export_tracking(tracking_id)
+        logger.debug(tracking)
+        if user['email'] != tracking['user_email']:
+            self.send_response_401()
+
+
+        db.update_export_tracking(tracking_id, data)
+        return self.send_response_204()
+
+
+
 class UserImports(GalaxyHandler):
 
     def endpoint(self):
@@ -620,6 +645,8 @@ class ExportsListProxy(GalaxyHandler):
                             'destination': tracking['destination'],
                             'update_time': tracking['update_time'], })
 
+
+        results = utils.list_encrypt_ids(results)
         return self.send_response(data=results)
 
 
@@ -638,11 +665,15 @@ class UserImportsList(GalaxyHandler):
 
         logger.debug('accessing the data directly')
         #            print( user )
-        trackings = db.get_import_trackings(user_email=user['email'], instance=instances[instance_id]['name'])
+        trackings = db.get_import_trackings(user_id=user['id'])
 
         results = []
         for tracking in trackings:
-            del tracking['history_id']
+            del tracking['tmpfile']
+            del tracking['nels_id']
+            del tracking['user_id']
+            del tracking['import_id']
+            tracking = utils.encrypt_ids( tracking )
             results.append(tracking)
 
         return self.send_response(data=results)
@@ -748,7 +779,7 @@ class Export(GalaxyHandler):
         logger.debug("patch tracking details")
         self.check_token()
         data = self.post_values()
-        self.valid_arguments(data, ['state', 'export_id', 'tmpfile'])
+        self.valid_arguments(data, ['state', 'export_id', 'tmpfile', 'show'])
         # need to decrypt the id otherwise things blow up!
         tracking_id = utils.decrypt_value(tracking_id)
 
@@ -1043,6 +1074,7 @@ def main():
 
             # for proxying into the usegalaxy tracking api, will get user email and instance from the galaxy client.
             (r"/user/exports/?$", ExportsListProxy),  # done
+            (r"/user/export/(\w+)/?$", UserExport),  # done
             (r"/user/imports/?$", UserImportsList),  #
             (r'/user/(\w+)/?$', User),  # Done
 
