@@ -400,7 +400,8 @@ class DB(object):
             del values['log']
 
         self._db.update('nels_import_tracking', values, {'id': tracking_id})
-        self.add_import_tracking_log(tracking_id, state=values['state'], log=log)
+        if 'state' in values:
+            self.add_import_tracking_log(tracking_id, state=values['state'], log=log)
 
 
     def get_import_trackings(self, **values):
