@@ -348,6 +348,28 @@ class UserExport(GalaxyHandler):
         return self.send_response_204()
 
 
+class UserImport(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/user/import/(ID)/")
+
+    def patch(self, tracking_id):
+        logger.debug("patch tracking details")
+        user = self.get_user()
+        if user is None:
+            self.send_response_404()
+        data = self.arguments()
+        self.require_arguments( data, ['show'])
+        # need to decrypt the id otherwise things blow up!
+        tracking_id = utils.decrypt_value(tracking_id)
+        tracking = db.get_import_tracking(tracking_id)
+        logger.debug(tracking)
+        if user['email'] != tracking['user_email']:
+            self.send_response_401()
+
+        db.update_import_tracking(tracking_id, data)
+        return self.send_response_204()
+
 
 class UserImports(GalaxyHandler):
 
@@ -1076,6 +1098,7 @@ def main():
             (r"/user/exports/?$", ExportsListProxy),  # done
             (r"/user/export/(\w+)/?$", UserExport),  # done
             (r"/user/imports/?$", UserImportsList),  #
+            (r"/user/export/(\w+)/?$", UserImport),  # done
             (r'/user/(\w+)/?$', User),  # Done
 
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
