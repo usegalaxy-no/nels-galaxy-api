@@ -5,6 +5,7 @@ from Crypto.Random import get_random_bytes
 import codecs
 
 import kbr.file_utils as file_utils
+import re
 
 id_cipher = None
 
@@ -114,3 +115,13 @@ def list_encrypt_ids(entries: []) -> []:
         entry = encrypt_ids(entry)
 
     return entries
+
+def readable_date(timestamp:str) -> str:
+
+    if timestamp is None:
+        return None
+
+    timestamp = timestamp.replace('T', ' ')
+    timestamp = re.sub(r'\.\d+', '', timestamp)
+
+    return timestamp

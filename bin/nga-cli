@@ -27,6 +27,7 @@ import kbr.email_utils as email_utils
 
 import nels_galaxy_api.api_requests as api_requests
 import nels_galaxy_api.utils as nga_utils
+import nels_galaxy_api.front as nga_front
 
 
 verbose = False
@@ -35,15 +36,6 @@ version = version_utils.as_string()
 mq = mq_utils.Mq()
 galaxy_config = None
 
-def readable_date(timestamp:str) -> str:
-
-    if timestamp is None:
-        return None
-
-    timestamp = timestamp.replace('T', ' ')
-    timestamp = re.sub(r'\.\d+', '', timestamp)
-
-    return timestamp
 
 def init( config_file:str) -> {}:
     config = config_utils.readin_config_file(config_file)
@@ -98,9 +90,7 @@ def ping_hosts( config:{}):
         if config['instances'][ instance_id]['name'] == instance_id:
             continue
 
-
         instance = config['instances'][ instance_id]
-#        print( instance['name'])
         ping = {'name': instance['name'], 'reachable': False, 'secure reachable': False, 'api-version': 'NA', 'disk free': 'NA', 'bioblend':False}
         try:
             base_info = instance['api'].get_base()
@@ -110,8 +100,7 @@ def ping_hosts( config:{}):
             ping['disk free'] = f"{disk_info['perc_free']:>3.2f}% ({disk_info['free_gb']:>7.2f} GB)"
             ping['secure reachable'] = True
         except Exception as e:
-#            print(e)
- #           logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
+            logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
             pass
 
         try:
@@ -119,10 +108,7 @@ def ping_hosts( config:{}):
             gi.histories.hl = gi.histories.get_histories()
             ping['bioblend'] = True
         except Exception as e:
-#            print(e )
             logger.debug(f'Could not fetch all information for {instance["name"]}: {e}')
-
-
 
         pings.append( ping)
 
@@ -132,157 +118,56 @@ def ping_hosts( config:{}):
 
 def get_users( config:{}, instance_name:str=None):
 
-    users = []
-    brief = []
-
     if instance_name == "help":
-        print("help: users [instance-name]")
+        print("help: list users [instance-name]")
         return
 
-
     if instance_name:
-        global verbose
-        verbose = True
-
-    for instance_id in config['instances']:
-        if instance_name and instance_id != instance_name:
-            continue
-
-        if config['instances'][ instance_id]['name'] != instance_id:
-            continue
-
-        instance = config['instances'][ instance_id]
-
-        instance_users = []
-        tmp_users = instance['api'].get_users()
-        brief.append({'name': instance['name'], 'users': len(tmp_users)})
-
-        if verbose:
-            tmp_users = sorted(tmp_users, key=lambda x: x['email'].lower())
-
-            for tmp_user in tmp_users:
-
-                tmp_user['instance'] = instance['name']
-                tmp_user['active'] = bool(tmp_user['active'])
-                tmp_user['deleted'] = bool(tmp_user['deleted'])
-#                del tmp_user['id']
-
-                instance_users.append( tmp_user )
-
-            users += sorted(instance_users, key=lambda x: x['email'].lower())
-
-
-    if verbose:
-        print(tabulate( users, headers="keys", tablefmt="psql" ))
+        data = nga_front.get_users(config, instance_name)
+    elif verbose:
+        data = nga_front.get_users(config)
     else:
-        print(tabulate( brief, headers="keys", tablefmt="psql" ))
+        data = nga_front.get_users(config, summary=True)
+
+
+    print(tabulate( data, headers="keys", tablefmt="psql" ))
 
 
 def get_histories( config:{}, instance_name:str=None, user_email:str=None):
 
-    histories = []
-    brief     = []
-
     if instance_name == "help":
         print("help: histories [instance-name] [user-email]")
         return
 
-
     if user_email:
-        global verbose
-        verbose = True
-
-
-    for instance_id in config['instances']:
-        if instance_name and instance_id != instance_name:
-            continue
-
-
-        if config['instances'][ instance_id]['name'] != instance_id:
-            continue
-
-
-        instance = config['instances'][ instance_id]
-
-        users = instance['api'].get_users()
-        users = sorted(users, key=lambda x: x['email'].lower())
-
-        for user in users:
-            if user_email is not None and user['email'] != user_email:
-                continue
-
-            tmp_histories = instance['api'].get_user_histories(user['email'])
-            brief.append({'name':instance['name'], 'user': user['email'], 'histories': len( tmp_histories )})
-            if verbose:
-                for tmp_history in tmp_histories:
-                    tmp_history['instance'] = instance['name']
-                    tmp_history['changed'] = readable_date(tmp_history['update_time'])
-                    del tmp_history['update_time']
-
-                    tmp_history['user'] = user['email']
-                    del tmp_history['hid_counter']
-
-                    histories.append( tmp_history )
-
-
-    if verbose:
-        print(tabulate( histories, headers="keys", tablefmt="psql" ))
+        data = nga_front.get_histories(config, instance_name, user_email)
+    elif verbose:
+        data = nga_front.get_histories(config, instance_name)
     else:
-        print(tabulate( brief, headers="keys", tablefmt="psql"  ))
+        data = nga_front.get_histories(config, instance_name, summary=True)
+
+
+    print(tabulate( data, headers="keys", tablefmt="psql" ))
+    return
 
 
 def get_exports( config:{}, instance_name:str=None, user_email:str=None):
 
-    exports = []
-    brief     = []
-
     if instance_name == "help":
-        print("help: histories [instance-name] [user-email]")
+        print("help: exports [instance-name] [user-email]")
         return
 
 
-    for instance_id in config['instances']:
-        if instance_name and instance_id != instance_name:
-            continue
-
-
-        if config['instances'][ instance_id]['name'] != instance_id:
-            continue
-
-
-        instance = config['instances'][ instance_id]
-
-        users = instance['api'].get_users()
-        users = sorted(users, key=lambda x: x['email'].lower())
-
-        for user in users:
-            if user_email is not None and user['email'] != user_email:
-                continue
-
-            tmp_exports = instance['api'].get_user_history_exports(user['email'])
-            nr_exports = len( tmp_exports )
-            if not nr_exports:
-                continue
-
-            brief.append({'name':instance['name'], 'user': user['email'], 'instance exports':  nr_exports })
-            for tmp_export in tmp_exports:
-                if not verbose:
-                    del tmp_export['export_id']
-                    del tmp_export['job_id']
-                    del tmp_export['history_id']
-
-                tmp_export['instance'] = instance['name']
-                tmp_export['user'] = user['email']
-                tmp_export['created'] = readable_date(tmp_export['create_time'])
-                del tmp_export['create_time']
-
-                exports.append( tmp_export )
-
-
     if user_email:
-        print(tabulate( exports, headers="keys", tablefmt="psql" ))
+        data = nga_front.get_exports(config, instance_name, user_email, full=verbose)
+    elif verbose:
+        data = nga_front.get_exports(config, instance_name, full=verbose)
     else:
-        print(tabulate( brief, headers="keys", tablefmt="psql"  ))
+        data = nga_front.get_exports(config, instance_name, summary=True)
+
+
+    print(tabulate( data, headers="keys", tablefmt="psql" ))
+    return
 
 
 def get_imports( config:{}, user_email:str=None):
@@ -295,38 +180,16 @@ def get_imports( config:{}, user_email:str=None):
         return
 
 
-    users =     config['master_api'].get_users()
-    users = sorted(users, key=lambda x: x['email'].lower())
-
-    for user in users:
-        if user_email is not None and user['email'] != user_email:
-            continue
-
-        tmp_imports = config['master_api'].get_user_history_imports(user['id'])
-        nr_imports = len( tmp_imports )
-        if not nr_imports:
-            continue
-
-        brief.append({'user': user['email'], 'imports':  nr_imports })
-        for tmp_import in tmp_imports:
-#            print( tmp_import )
-            if not verbose:
-                del tmp_import['import_id']
-                del tmp_import['job_id']
-                del tmp_import['history_id']
-#                del tmp_import['tmpfile']
-
-            tmp_import['user'] = user['email']
-            tmp_import['created'] = readable_date(tmp_import['create_time'])
-            del tmp_import['create_time']
-
-            imports.append( tmp_import )
-
-
-    if verbose:
-        print(tabulate( imports, headers="keys", tablefmt="psql" ))
+    if user_email:
+        data = nga_front.get_imports(config, user_email, full=verbose)
+    elif verbose:
+        data = nga_front.get_imports(config, full=verbose)
     else:
-        print(tabulate( brief, headers="keys", tablefmt="psql"  ))
+        data = nga_front.get_imports(config, summary=True)
+
+
+    print(tabulate( data, headers="keys", tablefmt="psql" ))
+    return
 
 
 def list_export_requests(config:{}, user:str=None, instance:str=None):
@@ -345,8 +208,8 @@ def list_export_requests(config:{}, user:str=None, instance:str=None):
 
     for request in requests:
 
-        request['update_time'] = readable_date(request['update_time'])
-        request['create_time'] = readable_date(request['create_time'])
+        request['update_time'] = nga_utils.readable_date(request['update_time'])
+        request['create_time'] = nga_utils.readable_date(request['create_time'])
 
         if not verbose:
             for k in ['history_id', 'export_id', 'tmpfile', 'nels_id', 'destination']:
@@ -378,8 +241,8 @@ def list_import_requests(config:{}, user:str=None):
             request['user_email'] = 'NA'
 
 
-        request['update_time'] = readable_date(request['update_time'])
-        request['create_time'] = readable_date(request['create_time'])
+        request['update_time'] = nga_utils.readable_date(request['update_time'])
+        request['create_time'] = nga_utils.readable_date(request['create_time'])
 
         if not verbose:
             for k in ['nels_id', 'source', 'user_id', 'tmpfile', 'import_id']:
@@ -664,9 +527,9 @@ def nga_errors(config, commands):
 
             if time_delta:
                 if time_delta <= update_time:
-                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['update_time']) ])
+                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['update_time']) ])
             else:
-                errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['update_time'] )])
+                errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['update_time'] )])
 
     if len(errors) > 1:
         errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
@@ -706,9 +569,9 @@ def nga_stuck_jobs(config, commands):
 
             if time_delta:
                 if time_delta <= create_time:
-                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['create_time']) ])
+                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['create_time']) ])
             else:
-                errors.append([request['id'], request['instance'], request['user_email'], request['state'], readable_date(request['create_time'] )])
+                errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['create_time'] )])
 
     if len(errors) > 1:
         errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
@@ -775,7 +638,6 @@ def utils(config, commands):
 
     if len(commands) == 0:
         commands.append( 'help')
-
 
     sub_command = commands.pop(0)
 
