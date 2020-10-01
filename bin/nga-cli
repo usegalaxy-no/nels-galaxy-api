@@ -35,6 +35,9 @@ version = version_utils.as_string()
 
 mq = mq_utils.Mq()
 galaxy_config = None
+nels_storage_client_key = None
+nels_storage_client_secret = None
+nels_storage_url = None
 
 
 def init( config_file:str) -> {}:
@@ -297,7 +300,6 @@ def export_subcommand(config:{}, commands=[]):
 
 def import_subcommand(config:{}, commands=[]):
 
-
     if len(commands) == 0:
         commands.append( 'all')
 
@@ -346,7 +348,6 @@ def queue_job(config:{}, commands=[], tpe:str=None):
     if len(commands) == 0:
         print(f"requests: {tpe}s queue job-id [new-state]")
         return
-
 
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state = args_utils.get_or_default(commands, None )
@@ -411,7 +412,6 @@ def restate_job(config:{}, commands=[], tpe:str=None):
         raise RuntimeError(f"Unknown type {tpe}, allowed are import and export")
 
 
-
 def galaxy_info_subcommand(config, commands):
 
     if len(commands) == 0:
@@ -454,19 +454,17 @@ def nga_errors(config, commands):
     timerange = args_utils.get_or_default(commands, "")
     time_delta = nga_utils.timedelta_to_epoc(timerange)
 
+    errors = [['id', 'instance','user','state','update time', 'type']]
 
-    errors = [['id', 'instance','user','state','update time']]
-
-    for request in config['master_api'].get_exports():
+    export_requests = nga_front.get_export_requests(config, time_delta)
+    for request in export_requests:
         if 'error' in request['state']:
-            update_time = timedate_utils.datestr_to_ts(request['update_time'])
-            update_time = timedate_utils.to_sec_since_epoch( update_time)
+                errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['update_time'] ), 'export'])
 
-            if time_delta:
-                if time_delta <= update_time:
-                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['update_time']) ])
-            else:
-                errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['update_time'] )])
+    import_requests = nga_front.get_import_requests(config, time_delta)
+    for request in import_requests:
+        if 'error' in request['state']:
+            errors.append([request['id'], ' ', request['user_email'], request['state'], nga_utils.readable_date(request['update_time'] ), 'import'])
 
     if len(errors) > 1:
         errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
@@ -478,50 +476,52 @@ def nga_errors(config, commands):
         else:
             print(errors)
 
+
+
 def nga_stuck_jobs(config, commands):
 
     timerange = args_utils.get_or_default(commands, "")
     time_delta = nga_utils.timedelta_to_epoc(timerange)
 
-    errors = [['id', 'instance','user','state','create time']]
+    errors = [['id', 'instance','user','state','create time', 'type']]
 
-    for request in config['master_api'].get_exports():
+    export_requests = nga_front.get_export_requests(config, time_delta)
+    for request in export_requests:
         if request['update_time'] == '' or request['update_time'] is None:
-            create_time = timedate_utils.datestr_to_ts(request['create_time'])
-            create_time = timedate_utils.to_sec_since_epoch( create_time)
+            errors.append([request['id'], request['instance'],
+                           request['user_email'], request['state'],
+                           nga_utils.readable_date(request['create_time'] ), 'export'])
 
-#            print( request )
-
-            if time_delta:
-                if time_delta <= create_time:
-                    errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['create_time']) ])
-            else:
-                errors.append([request['id'], request['instance'], request['user_email'], request['state'], nga_utils.readable_date(request['create_time'] )])
+    import_requests = nga_front.get_import_requests(config, time_delta)
+    for request in import_requests:
+        if request['update_time'] == '' or request['update_time'] is None:
+            errors.append([request['id'], ' ',
+                           request['user_email'], request['state'],
+                           nga_utils.readable_date(request['create_time'] ), 'import'])
 
     if len(errors) > 1:
         errors = tabulate( errors, headers="firstrow", tablefmt="psql" )
         print(errors)
 
-def nga_unstick_export_jobs(config, commands):
+def nga_unstick_jobs(config, commands):
 
     timerange = args_utils.get_or_default(commands, "")
     time_delta = nga_utils.timedelta_to_epoc(timerange)
 
-
-    for request in config['master_api'].get_exports():
+    export_requests = nga_front.get_export_requests(config, time_delta)
+    for request in export_requests:
         if request['update_time'] == '' or request['update_time'] is None:
-            create_time = timedate_utils.datestr_to_ts(request['create_time'])
-            create_time = timedate_utils.to_sec_since_epoch( create_time)
+            queue_job(config,  [request['id']], tpe="export")
+            if verbose:
+                print(f"Unstuck export job {request['id']} for {request['user_email']} on {request['instance']}")
 
-            if time_delta:
-                if time_delta <= create_time:
-                    queue_export_job(config,  [request['id']])
-                    if verbose:
-                        print(f"Unstuck job {request['id']} for {request['user_email']} on {request['instance']}")
-            else:
-                queue_export_job(config,  [request['id']])
-                if verbose:
-                    print(f"Unstuck job {request['id']} for {request['user_email']} on {request['instance']}")
+    import_requests = nga_front.get_import_requests(config, time_delta)
+    for request in import_requests:
+        if request['update_time'] == '' or request['update_time'] is None:
+            queue_job(config,  [request['id']], tpe="import")
+            if verbose:
+                print(f"Unstuck import job {request['id']} for {request['user_email']} on {request['instance']}")
+
 
 
 def list_tmpfiles(config, commands):
@@ -563,6 +563,12 @@ def galaxy_crypt(value:any, tpe:str) -> None:
         raise RuntimeError(f'Unknown id manipulation {tpe}')
 
 
+def nels_ssh_info(config, commands):
+    nels_id = args_utils.get_or_fail(commands, "Nels-id is required" )
+    ssh_info = nga_utils.get_ssh_credential(config, nels_id, tmpfile=False)
+    print(f"cmd for NeLS-id {nels_id} user: ssh/scp -i {ssh_info['key_file']} {ssh_info['username']}@{ssh_info['hostname']}")
+    print(f"Remember to delete {ssh_info['key_file']} file when done!")
+
 
 def utils_subcommand(config, commands):
 
@@ -581,7 +587,7 @@ def utils_subcommand(config, commands):
         nga_stuck_jobs(config, commands)
         return
     elif sub_command == 'unstick':
-        nga_unstick_export_jobs(config, commands)
+        nga_unstick_jobs(config, commands)
         return
     elif sub_command == 'queue-flush':
         mq.flush()
@@ -595,6 +601,8 @@ def utils_subcommand(config, commands):
     elif sub_command == 'encrypt':
         value = args_utils.get_or_fail(commands, "value is required" )
         galaxy_crypt(value, 'encrypt')
+    elif sub_command == 'nels-ssh-info':
+        nels_ssh_info(config, commands)
 
 
     else:
@@ -612,7 +620,7 @@ def utils_subcommand(config, commands):
         print("utils: queue-size")
         print("utils: decrypt [value]")
         print("utils: encrypt [value]")
-        print("utils: nels-rsa-key [nels-id] NOT DONE!")
+        print("utils: nels-ssh-info [nels-id] ")
 #        print("utils: exports [instance] [user]")
 
 

@@ -1,3 +1,7 @@
+import pprint as pp
+
+import kbr.timedate_utils as timedate_utils
+
 import nels_galaxy_api.utils as nga_utils
 
 
@@ -142,7 +146,6 @@ def get_imports( config:{}, user_email:str=None, summary=False, full=False):
 
         brief.append({'user': user['email'], 'imports':  nr_imports })
         for tmp_import in tmp_imports:
-            #            print( tmp_import )
             if not full:
                 del tmp_import['import_id']
                 del tmp_import['job_id']
@@ -158,5 +161,38 @@ def get_imports( config:{}, user_email:str=None, summary=False, full=False):
 
     if summary:
         return brief
+
+    return imports
+
+
+def get_export_requests(config, time_delta) -> []:
+
+    exports = []
+
+    for request in config['master_api'].get_exports():
+        create_time = timedate_utils.datestr_to_ts(request['create_time'])
+        create_time = timedate_utils.to_sec_since_epoch(create_time)
+
+        if time_delta:
+            if time_delta <= create_time:
+                exports.append(request)
+        else:
+            exports.append(request)
+
+    return exports
+
+def get_import_requests(config, time_delta) -> []:
+
+    imports = []
+
+    for request in config['master_api'].get_imports():
+        create_time = timedate_utils.datestr_to_ts(request['create_time'])
+        create_time = timedate_utils.to_sec_since_epoch(create_time)
+
+        if time_delta:
+            if time_delta <= create_time:
+                imports.append(request)
+        else:
+            imports.append(request)
 
     return imports

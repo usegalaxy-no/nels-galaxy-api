@@ -7,6 +7,7 @@ import codecs
 import kbr.file_utils as file_utils
 import re
 import sys
+import requests
 import time
 
 id_cipher = None
@@ -152,4 +153,39 @@ def timedelta_to_epoc(timerange) -> int:
         sys.exit(1)
 
     return time_delta
+
+
+
+def get_ssh_credential(config, nels_id: int, tmpfile=True):
+
+    nels_storage_client_key = config['nels_storage_client_key']
+    nels_storage_client_secret = config['nels_storage_client_secret']
+    nels_storage_url = config['nels_storage_url'].rstrip("/")
+
+    # make sure the id is a string
+#    nels_id = str(nels_id)
+    #    api_url = 'https://nels.bioinfo.no/'
+    #    api_url = 'https://test-fe.cbu.uib.no/nels-'
+
+    api_url = f"{nels_storage_url}/users/{nels_id}"
+    #    logger.debug(f"API URL: {api_url}")
+    response = requests.get(api_url, auth=(nels_storage_client_key, nels_storage_client_secret))
+    if (response.status_code == requests.codes.ok):
+        json_response = response.json()
+
+        if tmpfile:
+            tmp = tempfile.NamedTemporaryFile(mode='w+t', suffix=".txt", dir=tmp_dir, delete=False)
+            tmp.write(json_response['key-rsa'])
+            tmp.close()
+            json_response['key_file'] = tmp.name
+        else:
+            outfile = f"{nels_id}.rsa"
+            file_utils.write(outfile, json_response['key-rsa'])
+            os.chmod(outfile, 0o600)
+            json_response['key_file'] = outfile
+
+        return json_response
+    else:
+        raise Exception("HTTP response code=%s" % str(response.status_code))
+
 
