@@ -160,6 +160,70 @@ def list_exports( config:{}, instance_name:str=None, user_email:str=None):
     return
 
 
+def list_intersect( config:{}, instance_name:str=None, user_email:str=None):
+
+    if instance_name == "help":
+        print("help: exports [instance-name] [user-email]")
+        return
+
+    export_requests = nga_front.get_export_requests(config, 0)
+
+    instance_exports = {}
+    user_instance_exports = {}
+    exports_list = []
+    for export_request in export_requests:
+        hist_id = export_request['history_id']
+        instance = export_request['instance']
+        user  = export_request[ 'user_email' ]
+
+        if instance not in instance_exports:
+            instance_exports[ instance ] = {}
+            user_instance_exports[ instance ] = {}
+        instance_exports[ instance ][ hist_id ] = 1
+
+        if user not in user_instance_exports[instance]:
+            user_instance_exports[ instance ][user] = {}
+
+        user_instance_exports[ instance][ user ][ hist_id] = 1
+        exports_list.append( hist_id )
+
+    if user_email or verbose:
+        histories = nga_front.get_histories(config, instance_name, user_email)
+
+        for history in histories:
+            history['exported to NeLS'] = False
+            if history['id'] in exports_list:
+                history['exported to NeLS'] = True
+    else:
+        histories = nga_front.get_histories(config, instance_name, summary=True)
+        summary = {}
+
+        for history in histories:
+            instance = history['name']
+            user     = history['user']
+            history['exported to NeLS'] = 0
+
+            if instance not in summary:
+                summary[instance] = {"histories": 0, 'exported': 0}
+            summary[ instance ][ 'histories' ] += 1
+
+            if instance in user_instance_exports and user in user_instance_exports[instance]:
+                history['exported to NeLS'] = len(user_instance_exports[ instance ][ user ].values())
+                summary[ instance ][ 'exported' ] += 1
+
+        if instance_name is None:
+            histories = []
+            for instance in summary:
+                histories.append({'name': instance,
+                                  'histories': summary[instance]['histories'],
+                                  'exported to NeLS': summary[instance]['exported']})
+
+
+
+    print(tabulate( histories, headers="keys", tablefmt="psql" ))
+    return
+
+
 def list_imports( config:{}, user_email:str=None):
 
     if user_email == "help":
@@ -430,6 +494,10 @@ def galaxy_info_subcommand(config, commands):
         list_exports(config, instance_name=args_utils.get_or_default(commands, None),
                     user_email=args_utils.get_or_default(commands, None))
         return
+    elif sub_command == 'intersect':
+        list_intersect(config, instance_name=args_utils.get_or_default(commands, None),
+                     user_email=args_utils.get_or_default(commands, None))
+        return
     elif sub_command == 'imports':
         list_imports(config, user_email=args_utils.get_or_default(commands, None))
         return
@@ -443,6 +511,7 @@ def galaxy_info_subcommand(config, commands):
         print("list: histories [instance] [user]")
         print("list: exports [instance] [user]")
         print("list: imports [user]")
+        print("list: intersect [instance] [user] ")
 
 
 def nga_errors(config, commands):
