@@ -6,6 +6,8 @@ import codecs
 
 import kbr.file_utils as file_utils
 import re
+import sys
+import time
 
 id_cipher = None
 
@@ -125,3 +127,29 @@ def readable_date(timestamp:str) -> str:
     timestamp = re.sub(r'\.\d+', '', timestamp)
 
     return timestamp
+
+
+def timedelta_to_epoc(timerange) -> int:
+    ''' 3h, 2d, 1w --> now - delta as epoc secs '''
+
+    if timerange == '' or timerange is None:
+        return 0
+
+    time_delta = 0
+    try:
+        g = re.match(r'(\d+)([hdw])', timerange)
+        num, range = g.groups(0)
+        ts = time.time()
+        if range == 'h':
+            time_delta = ts - 3600*int(num)
+        elif range == 'd':
+            time_delta = ts - 24*3600*int(num)
+        elif range == 'w':
+            time_delta = ts - 24*3600*7*int(num)
+    except Exception as e:
+        print( f"timerange {timerange} is invalid valid examples: 1d 2h 1w ")
+        print( e )
+        sys.exit(1)
+
+    return time_delta
+

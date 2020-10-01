@@ -168,7 +168,7 @@ def list_exports( config:{}, instance_name:str=None, user_email:str=None):
     return
 
 
-def get_imports( config:{}, user_email:str=None):
+def list_imports( config:{}, user_email:str=None):
 
     if user_email == "help":
         print("help: imports <user-email>")
@@ -209,7 +209,7 @@ def list_export_requests(config:{}, user:str=None, instance:str=None):
 
     requests = sorted(requests, key=lambda x: (x['create_time'], x['update_time'] ))
 
-    print(tabulate( requests, headers="keys", tablefmt="psql"   ))
+    print(tabulate( requests, headers="keys", tablefmt="psql"))
 
 
 def list_import_requests(config:{}, user:str=None):
@@ -226,7 +226,6 @@ def list_import_requests(config:{}, user:str=None):
             request['user_email'] = user['email']
         else:
             request['user_email'] = 'NA'
-
 
         request['update_time'] = nga_utils.readable_date(request['update_time'])
         request['create_time'] = nga_utils.readable_date(request['create_time'])
@@ -357,17 +356,18 @@ def submit_mq_job(tracker_id:int, type:str) -> None:
     mq.publish(body=json.dumps(payload))
 
 
-def queue_export_job(config:{}, commands=[]):
-
-    if len(commands) == 0:
-        print("requests: queue job-id [new-state]")
-        return
+def queue_job(config:{}, commands=[], tpe:str=None):
 
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state = args_utils.get_or_default(commands, None )
 
+    if tpe == 'export':
+        tracker = config['master_api'].get_export( job_id)
+    elif tpe == 'import':
+        tracker = config['master_api'].get_import( job_id)
+    else:
+        raise RuntimeError(f'unknown job type {tpe}')
 
-    tracker = config['master_api'].get_export( job_id)
     if tracker is None:
         print(f"Unknown job id {job_id}")
         sys.exit(1)
@@ -376,15 +376,25 @@ def queue_export_job(config:{}, commands=[]):
     del tracker['create_time']
     del tracker['update_time']
 
-#    tracker = config['master_api'].post_export( job_id)
-
     if state is not None and state != tracker['state']:
-        config['master_api'].update_export(job_id, {'state':state})
+        if tpe == 'export':
+            config['master_api'].update_export(job_id, {'state':state})
+        elif tpe == 'import':
+            config['master_api'].update_import(job_id, {'state':state})
     else:
         state = tracker['state']
 
-#    job_id = config['master_api'].decrypt( job_id )
-    submit_mq_job( tracker_id=job_id, type="export")
+
+    submit_mq_job( tracker_id=job_id, type=tpe)
+
+
+def queue_export_job(config:{}, commands=[]):
+
+    if len(commands) == 0:
+        print("requests: queue job-id [new-state]")
+        return
+
+    queue_job(config, commands, tpe='export')
 
 def queue_import_job(config:{}, commands=[]):
 
@@ -392,31 +402,10 @@ def queue_import_job(config:{}, commands=[]):
         print("requests: queue job-id [new-state]")
         return
 
-    job_id = args_utils.get_or_fail(commands, "Job id is required" )
-    state = args_utils.get_or_default(commands, None )
 
+    queue_job(config, commands, tpe='import')
 
-    tracker = config['master_api'].get_import( job_id)
-    if tracker is None:
-        print(f"Unknown job id {job_id}")
-        sys.exit(1)
-
-    del tracker['id']
-    del tracker['create_time']
-    del tracker['update_time']
-
-    #    tracker = config['master_api'].post_export( job_id)
-
-    if state is not None and state != tracker['state']:
-        config['master_api'].update_import(job_id, {'state':state})
-    else:
-        state = tracker['state']
-
-    #    job_id = config['master_api'].decrypt( job_id )
-    submit_mq_job( tracker_id=job_id, type="import")
-
-
-def requeue_job(config:{}, commands=[], type:str=None):
+def requeue_job(config:{}, commands=[], tpe:str=None):
 
     if len(commands) == 0 or commands[0] == 'help':
         print("requests: requeue job-id new-state")
@@ -425,14 +414,14 @@ def requeue_job(config:{}, commands=[], type:str=None):
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state  = args_utils.get_or_fail(commands, "New job state is required" )
 
-    if type == 'export':
+    if tpe == 'export':
         tracker = config['master_api'].requeue_export( job_id, {'state':state})
-    elif type == 'import':
+    elif tpe == 'import':
         tracker = config['master_api'].requeue_import( job_id, {'state':state})
     else:
-        raise RuntimeError(f"Unknown type {type}, allowed are import and export")
+        raise RuntimeError(f"Unknown type {tpe}, allowed are import and export")
 
-def restate_job(config:{}, commands=[], type:str=None):
+def restate_job(config:{}, commands=[], tpe:str=None):
 
     if len(commands) == 0 or commands[0] == 'help':
         print("requests: queue job-id [new-state]")
@@ -441,12 +430,12 @@ def restate_job(config:{}, commands=[], type:str=None):
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state  = args_utils.get_or_fail(commands, "New job state is required" )
 
-    if type == 'export':
+    if tpe == 'export':
         config['master_api'].update_export(job_id, {'state':state})
-    elif type == 'import':
+    elif tpe == 'import':
         config['master_api'].update_import(job_id, {'state':state})
     else:
-        raise RuntimeError(f"Unknown type {type}, allowed are import and export")
+        raise RuntimeError(f"Unknown type {tpe}, allowed are import and export")
 
 
 
@@ -469,7 +458,7 @@ def galaxy_info_subcommand(config, commands):
                     user_email=args_utils.get_or_default(commands, None))
         return
     elif sub_command == 'imports':
-        get_imports(config, user_email=args_utils.get_or_default(commands, None))
+        list_imports(config, user_email=args_utils.get_or_default(commands, None))
         return
     else:
         if sub_command != 'help':
@@ -490,19 +479,7 @@ def nga_errors(config, commands):
         email = args_utils.get_or_fail(commands, 'email not provided')
 
     timerange = args_utils.get_or_default(commands, "")
-    time_delta = 0
-    if timerange != "":
-        try:
-            g = re.match(r'(\d+)([hd])', timerange)
-            num, range = g.groups(0)
-            ts = time.time()
-            if range == 'h':
-                time_delta = ts - 3600*int(num)
-            elif range == 'd':
-                time_delta = ts - 24*3600*int(num)
-        except Exception as e:
-            print( f"timerange {timerange} is invalid eg: 1d 2h  ")
-            sys.exit(1)
+    time_delta = nga_utils.timedelta_to_epoc(timerange)
 
 
     errors = [['id', 'instance','user','state','update time']]
@@ -531,19 +508,7 @@ def nga_errors(config, commands):
 def nga_stuck_jobs(config, commands):
 
     timerange = args_utils.get_or_default(commands, "")
-    time_delta = 0
-    if timerange != "":
-        try:
-            g = re.match(r'(\d+)([hd])', timerange)
-            num, range = g.groups(0)
-            ts = time.time()
-            if range == 'h':
-                time_delta = ts - 3600*int(num)
-            elif range == 'd':
-                time_delta = ts - 24*3600*int(num)
-        except Exception as e:
-            print( f"timerange {timerange} is invalid eg: 1d 2h  ")
-            sys.exit(1)
+    time_delta = nga_utils.timedelta_to_epoc(timerange)
 
     errors = [['id', 'instance','user','state','create time']]
 
@@ -567,19 +532,7 @@ def nga_stuck_jobs(config, commands):
 def nga_unstick_export_jobs(config, commands):
 
     timerange = args_utils.get_or_default(commands, "")
-    time_delta = 0
-    if timerange != "":
-        try:
-            g = re.match(r'(\d+)([hd])', timerange)
-            num, range = g.groups(0)
-            ts = time.time()
-            if range == 'h':
-                time_delta = ts - 3600*int(num)
-            elif range == 'd':
-                time_delta = ts - 24*3600*int(num)
-        except Exception as e:
-            print( f"timerange {timerange} is invalid eg: 1d 2h  ")
-            sys.exit(1)
+    time_delta = nga_utils.timedelta_to_epoc(timerange)
 
 
     for request in config['master_api'].get_exports():
