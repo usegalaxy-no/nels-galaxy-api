@@ -43,17 +43,11 @@ def init( config_file:str) -> {}:
 
     master_url = config['master_url'].rstrip("/")
 
-    instances = {}
     master_api = api_requests.ApiRequests(master_url, config['key'])
     config['master_api'] = master_api
 
-#    nels_storage_client_key = config['nels_storage_client_key']
-#    nels_storage_client_secret = config['nels_storage_client_secret']
-#    nels_storage_url = config['nels_storage_url'].rstrip("/")
-
     global galaxy_config
     galaxy_config = config['galaxy_config']
-
 
     mq.connect(uri=config['mq_uri'])
 
@@ -62,9 +56,6 @@ def init( config_file:str) -> {}:
     for iid in config['instances']:
         instance = config['instances'][iid]
 
-#        print( instance )
-
-
         if 'active' not in instance or not instance['active']:
             continue
 
@@ -72,11 +63,9 @@ def init( config_file:str) -> {}:
         instance['id']  = iid
         tmp_instances[ iid ] = instance
         tmp_instances[ instance['name'] ] = instance
-#        print( tmp_instances )
 
 
     config['instances'] = tmp_instances
-#    logger.debug( config )
 
 
     return config
@@ -285,8 +274,7 @@ def export_subcommand(config:{}, commands=[]):
     elif sub_command == 'log':
         log_requests(config, commands)
     elif sub_command == 'queue':
-        queue_export_job(config, commands)
-        sys.exit()
+        queue_job(config, commands, tpe='export')
     elif sub_command == 'requeue':
         requeue_job(config, commands, 'export')
         sys.exit()
@@ -323,14 +311,11 @@ def import_subcommand(config:{}, commands=[]):
     elif sub_command == 'log':
         log_requests(config, commands)
     elif sub_command == 'queue':
-        queue_import_job(config, commands)
-        sys.exit()
+        queue_job(config, commands, tpe='import')
     elif sub_command == 'requeue':
         requeue_job(config, commands, 'import')
-        sys.exit()
     elif sub_command == 'restate':
         restate_job(config, commands, 'import')
-        sys.exit()
     else:
         if sub_command != 'help':
             print( f"Error: Unknown command '{sub_command}'\n")
@@ -345,9 +330,9 @@ def import_subcommand(config:{}, commands=[]):
         print("requests: imports restate ID new-state")
 
 
-def submit_mq_job(tracker_id:int, type:str) -> None:
+def submit_mq_job(tracker_id:int, tpe:str) -> None:
 
-    payload = {'tracker_id': tracker_id, "type":type}
+    payload = {'tracker_id': tracker_id, "type":tpe}
 
     if mq is None:
         logger.error('MQ not configured, cannot send message')
@@ -357,6 +342,11 @@ def submit_mq_job(tracker_id:int, type:str) -> None:
 
 
 def queue_job(config:{}, commands=[], tpe:str=None):
+
+    if len(commands) == 0:
+        print(f"requests: {tpe}s queue job-id [new-state]")
+        return
+
 
     job_id = args_utils.get_or_fail(commands, "Job id is required" )
     state = args_utils.get_or_default(commands, None )
@@ -385,25 +375,8 @@ def queue_job(config:{}, commands=[], tpe:str=None):
         state = tracker['state']
 
 
-    submit_mq_job( tracker_id=job_id, type=tpe)
+    submit_mq_job( tracker_id=job_id, tpe=tpe)
 
-
-def queue_export_job(config:{}, commands=[]):
-
-    if len(commands) == 0:
-        print("requests: queue job-id [new-state]")
-        return
-
-    queue_job(config, commands, tpe='export')
-
-def queue_import_job(config:{}, commands=[]):
-
-    if len(commands) == 0:
-        print("requests: queue job-id [new-state]")
-        return
-
-
-    queue_job(config, commands, tpe='import')
 
 def requeue_job(config:{}, commands=[], tpe:str=None):
 
@@ -574,6 +547,23 @@ def list_tmpfiles(config, commands):
 
 
 
+def galaxy_crypt(value:any, tpe:str) -> None:
+    global galaxy_config
+    galaxy_config = config_utils.readin_config_file( galaxy_config)
+    if 'id_secret' not in galaxy_config['galaxy']:
+        id_secret = "USING THE DEFAULT IS NOT SECURE!"
+    else:
+        id_secret = galaxy_config['galaxy']['id_secret']
+    nga_utils.init(id_secret)
+    if tpe == 'decrypt':
+        print( f"{value}\t{nga_utils.decrypt_value( value )}")
+    elif tpe == 'encrypt':
+        print( f"{value}\t{nga_utils.encrypt_value( value )}")
+    else:
+        raise RuntimeError(f'Unknown id manipulation {tpe}')
+
+
+
 def utils_subcommand(config, commands):
 
     if len(commands) == 0:
@@ -600,28 +590,11 @@ def utils_subcommand(config, commands):
         print(f"Currently {mq.queue_length('default')} messages in the MQueue")
         return
     elif sub_command == 'decrypt':
-        global galaxy_config
-        galaxy_config = config_utils.readin_config_file( galaxy_config)
-        if 'id_secret' not in galaxy_config['galaxy']:
-            id_secret = "USING THE DEFAULT IS NOT SECURE!"
-        else:
-            id_secret = galaxy_config['galaxy']['id_secret']
-        nga_utils.init(id_secret)
         value = args_utils.get_or_fail(commands, "value is required" )
-#        dec_value =
-        print( f"{value}\t{nga_utils.decrypt_value( value )}")
-        return
+        galaxy_crypt(value, 'decrypt')
     elif sub_command == 'encrypt':
-        galaxy_config = config_utils.readin_config_file( galaxy_config)
-        if 'id_secret' not in galaxy_config['galaxy']:
-            id_secret = "USING THE DEFAULT IS NOT SECURE!"
-        else:
-            id_secret = galaxy_config['galaxy']['id_secret']
-        nga_utils.init(id_secret)
         value = args_utils.get_or_fail(commands, "value is required" )
-        print( f"{value}\t{nga_utils.encrypt_value( value )}")
-        return
-
+        galaxy_crypt(value, 'encrypt')
 
 
     else:
@@ -632,9 +605,9 @@ def utils_subcommand(config, commands):
         print("==========================")
         print("utils: tmpfiles")
         print("utils: tmpfiles del")
-        print("utils: stuck <1d, 2h>")
-        print("utils: errors <1d, 2h>")
-        print("utils: errors email [email add] <1d, 2h>")
+        print("utils: stuck <1d, 2h, 3w>")
+        print("utils: errors <1d, 2h, 3w>")
+        print("utils: errors email [email add] <1d, 2h, 3w>")
         print("utils: queue-flush")
         print("utils: queue-size")
         print("utils: decrypt [value]")
