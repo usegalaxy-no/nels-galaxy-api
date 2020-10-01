@@ -1045,8 +1045,15 @@ class ImportsList(Export):
             if len(users):
                 filter['user_id'] = users[0]['id']
 
-        exports = utils.encrypt_ids(db.get_import_trackings(**filter))
-        self.send_response(data=exports)
+        imports = []
+        for imp in db.get_import_trackings(**filter):
+            users = db.get_user(id=imp['user_id'])
+            imp['user_email'] = users[0]['email']
+            imports.append( imp )
+
+        imports = utils.encrypt_ids(imports)
+        self.send_response(data=imports)
+
 
 
 class ImportHandler(GalaxyHandler):
