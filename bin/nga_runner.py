@@ -402,7 +402,7 @@ def main():
     logger.info(f'startup (v:{version})')
 
 
-    api_requests.set_token( config['key'])
+    api_requests.set_token( config['key'] )
 
 
 
