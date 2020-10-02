@@ -113,7 +113,7 @@ class DB(object):
 
         self._db.add('nels_export_tracking', values)
         tracking_id = self._db.get_id('nels_export_tracking', **values)
-        self.add_export_tracking_log(tracking_id, state="Created", log
+  #      self.add_export_tracking_log(tracking_id, state="Created", log)
         return tracking_id
 
 
@@ -445,5 +445,17 @@ class DB(object):
                 cleaned_imports[imp['history_id']] = imp
 
         return list(cleaned_imports.values())
+
+
+
+    def get_jobs(self, time_delta:int=None) -> []:
+        q = 'select  j.update_time, tool_id, email, state, job_runner_name, destination_id from job j, galaxy_user gu where gu.id=j.user_id {time_delta} order by j.id'
+
+        if time_delta is not None:
+            q = q.format(time_delta= f" and j.update_time > now() - interval '{time_delta}' second")
+        else:
+            q = q.format(time_delta= "")
+
+        return (self._db.get_as_dict(q))
 
 

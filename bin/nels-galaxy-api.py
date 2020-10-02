@@ -562,6 +562,26 @@ class HistoryImportsList(GalaxyHandler):
         return self.send_response(data=imports)
 
 
+class JobsList(GalaxyHandler):
+
+    def endpoint(self):
+        return ("/jobs/")
+
+    def get(self, ):
+        logger.debug("get jobs list")
+        self.check_token()
+        filter = self.arguments()
+
+        self.valid_arguments(filter, ['time_delta', ])
+
+        time_delta = filter.get('time_delta', "60m")
+
+        time_delta = utils.timedelta_to_sec( time_delta)
+        jobs = db.get_jobs(time_delta)
+        jobs = utils.list_encrypt_ids(jobs)
+        return self.send_response(data=jobs)
+
+
 class HistoryDownload(GalaxyHandler):
 
     def endpoint(self):
@@ -1150,6 +1170,9 @@ def main():
 
                  (r'/exports/?$', ExportsList),  # All entries in the table, for the cli (differnt key?) # done
                  (r'/imports/?$', ImportsList),  # All entries in the table, for the cli (differnt key?) # done
+
+                 (r'/jobs/?$', JobsList),  # All entries in the table, for the cli (differnt key?) # done
+
 
                  # For testing the setup
                  (r'/proxy/?$', ProxyTest),  # an  endpoint for testing the proxy connection #done
