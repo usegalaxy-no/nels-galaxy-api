@@ -571,15 +571,18 @@ class JobsList(GalaxyHandler):
         logger.debug("get jobs list")
         self.check_token()
         filter = self.arguments()
+        logger.debug( f'arguments {filter}')
+        self.valid_arguments(filter, ['time_delta', 'user_id'])
 
-        self.valid_arguments(filter, ['time_delta', ])
+        time_delta = filter.get('time_delta', "60m") #default 1 hour
+        time_delta = utils.timedelta_to_sec( time_delta )
 
-        time_delta = filter.get('time_delta', "60m")
+        user_id = filter.get('user_id', None)
+        if user_id is not None:
+            user_id = utils.decrypt_value(user_id)
 
-        time_delta = utils.timedelta_to_sec( time_delta)
-        jobs = db.get_jobs(time_delta)
-        jobs = utils.list_encrypt_ids(jobs)
-        return self.send_response(data=jobs)
+        jobs = db.get_jobs(time_delta=time_delta, user_id=user_id)
+        return self.send_response(data=utils.list_encrypt_ids(jobs))
 
 
 class HistoryDownload(GalaxyHandler):

@@ -448,13 +448,19 @@ class DB(object):
 
 
 
-    def get_jobs(self, time_delta:int=None) -> []:
-        q = 'select  j.update_time, tool_id, email, state, job_runner_name, destination_id from job j, galaxy_user gu where gu.id=j.user_id {time_delta} order by j.id'
+    def get_jobs(self, time_delta:int=None, user_id:str=None) -> []:
+        q = 'select  j.update_time, tool_id, j.user_id, email, state, job_runner_name, destination_id from job j, galaxy_user gu where gu.id=j.user_id {filter} order by j.id'
+
+        filter = ""
 
         if time_delta is not None:
-            q = q.format(time_delta= f" and j.update_time > now() - interval '{time_delta}' second")
-        else:
-            q = q.format(time_delta= "")
+            print( time_delta )
+            filter += f" and j.update_time > now() - interval '{time_delta}' second "
+
+        if user_id is not None:
+            filter += f" and j.user_id = '{user_id}' "
+
+        q = q.format(filter=filter)
 
         return (self._db.get_as_dict(q))
 

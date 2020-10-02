@@ -159,6 +159,8 @@ class ApiRequests( object ):
     def get_proxy(self):
         return self._request_get(f"{self._base_url}/proxy/")
 
+    def get_jobs(self, filter:{}={}) -> []:
+        return self._request_get(f"{self._base_url}/jobs/", data=filter, as_json=True)
 
 
 # Need these as the request thingy has changed slightly, prob not anymore!

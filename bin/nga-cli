@@ -300,6 +300,52 @@ def list_import_requests(config:{}, user:str=None):
     print(tabulate( requests, headers="keys", tablefmt="psql"   ))
 
 
+def list_jobs(config:{}, commands=[]):
+    time_delta = args_utils.get_or_default(commands, "60m" )
+    user_id = args_utils.get_or_default(commands, None )
+
+    jobs = config['master_api'].get_jobs({'time_delta' : time_delta, 'user_id': user_id})
+
+    if verbose:
+        print( tabulate ( jobs, tablefmt='psql' ))
+        return
+
+    summary = {'users':{}, 'tools':{}, 'states':{}}
+    for job in jobs:
+        summary['users'][job['email']] = summary['users'].get(job['email'], 0) + 1
+        summary['tools'][job['tool_id']]   = summary['tools'].get(job['tool_id'], 0) + 1
+        summary['states'][job['state']]  = summary['states'].get(job['state'], 0) + 1
+
+    summary['jobs'] = len(jobs)
+    summary['users'] = summary['users']
+    summary['tools'] = summary['tools']
+
+    print (f"Usage of usegalaxy for the last {time_delta}")
+    print (f"{len(summary['users'].keys())} users ran {summary['jobs']} jobs using {len(summary['tools'].keys())} different tools\n" )
+
+    print ("\ntop users:")
+    lim = 10
+    users = [['user', 'jobs']]
+    for user in sorted(summary['users'].keys(), key=lambda x: summary['users'][x], reverse=True):
+        users.append([user, summary['users'][user]])
+    print( tabulate(users[:10], headers='firstrow', tablefmt='psql'))
+
+
+    print ("\ntop tools:")
+    lim = 10
+    tools = [['tool', 'jobs']]
+    for tool in sorted(summary['tools'].keys(), key=lambda x: summary['tools'][x], reverse=True):
+        tools.append([tool, summary['tools'][tool]])
+
+    print( tabulate(tools[:10], headers='firstrow', tablefmt='psql'))
+
+    print ("\njob states:")
+    states = [['state', 'count']]
+    for state in sorted(summary['states'].keys(), key=lambda x: summary['states'][x], reverse=True):
+        states.append([state, summary['states'][state]])
+    print( tabulate(states, headers='firstrow', tablefmt='psql'))
+
+
 def log_requests(config, commands):
     if len(commands) == 0:
         commands.append( 'all')
@@ -480,6 +526,8 @@ def restate_job(config:{}, commands=[], tpe:str=None):
         raise RuntimeError(f"Unknown type {tpe}, allowed are import and export")
 
 
+
+
 def galaxy_info_subcommand(config, commands):
 
     if len(commands) == 0:
@@ -502,6 +550,9 @@ def galaxy_info_subcommand(config, commands):
         list_intersect(config, instance_name=args_utils.get_or_default(commands, None),
                      user_email=args_utils.get_or_default(commands, None))
         return
+    elif sub_command == 'jobs':
+        list_jobs(config,commands)
+        return
     elif sub_command == 'imports':
         list_imports(config, user_email=args_utils.get_or_default(commands, None))
         return
@@ -515,6 +566,7 @@ def galaxy_info_subcommand(config, commands):
         print("list: histories [instance] [user]")
         print("list: exports [instance] [user]")
         print("list: imports [user]")
+        print("list: jobs  [time (1m, 3d, 1m, 2w)] <user>")
         print("list: intersect [instance] [user] ")
 
 
