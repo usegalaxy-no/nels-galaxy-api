@@ -224,7 +224,7 @@ def run_push_export( tracker ):
         logger.debug(f"{tracker_id} dest file: {dest_file}")
 
         ssh_info = get_ssh_credential(tracker['nels_id'])
-        logger.debug(f"{tracker_id} ssh info {ssh_info}")
+#        logger.debug(f"{tracker_id} ssh info {ssh_info}")
 
         cmd = f'scp -o StrictHostKeyChecking=no -o BatchMode=yes -i {ssh_info["key_file"]} {tracker["tmpfile"]} "{ssh_info["username"]}@{ssh_info["hostname"]}:{dest_file}"'
 #        logger.debug(f"CMD: {cmd}")
@@ -274,8 +274,6 @@ def get_history_from_nels( tracker ):
 
         master_api.update_import(tracker_id, {'state': 'nels-transfer-running'})
 
-
-
         tmpfile = "{}/{}.tgz".format(tempfile.mkdtemp(dir=tmp_dir), tracker['id'])
         print( f"TMPFILE {tmpfile}")
 
@@ -323,7 +321,7 @@ def import_history( tracker ):
 
     # clean up!
     cmd = f"rm {tracker['tmpfile']}"
-    master_api.update_export(tracker_id, {'state': 'finished'})
+    master_api.update_import(tracker_id, {'state': 'finished'})
     logger.debug(f"CMD: {cmd}")
     run_cmd(cmd, 'cleanup')
     logger.info(f'{tracker_id}: history import done')
