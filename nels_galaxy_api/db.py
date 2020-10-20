@@ -280,7 +280,12 @@ class DB(object):
         self._db.add('api_keys', values)
 
     def get_api_key(self, user_id:int):
-        return self._db.get_single('api_keys', user_id=user_id)
+        values = self._db.get('api_keys', user_id=user_id, order=" create_time desc", limit=1)
+        if len( values ) == 1:
+            return values[ 0 ]
+
+        return None
+
 
 
 
