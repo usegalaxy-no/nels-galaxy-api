@@ -240,9 +240,9 @@ $ pip install -r requirements.txt
 
 
 
-## nels-galaxy-conductor
+## nga_runner.py
 
-This is the program conducting the flow of triggering of history exports and later the file transfers.
+This is the program running the flow of triggering of history exports and later the file transfers.
 
 ```
 nels_storage_client_key: "ASK KIDARNE"
@@ -272,10 +272,9 @@ nodes: [{"galaxy_url": "https://test.usegalaxy.no/",
 Runs the jobs in the rabbitmq queue
 
 ```
-./bin/mq_runner.py -c conducter-config -T <threads
+./bin/mq_runner.py -c <config>
 
 ```
-
 
 
 ## Design notes:
@@ -288,7 +287,7 @@ Galaxy session cookies are session keys with encrypted with blowfish using the i
 The development has been done on postgresql and is unlikely to work with
 other databases
 
-The program will create the required table if it does not exist.
+The program will create the required tables if needed.
 
 ### Terms Of Service
 
@@ -304,23 +303,46 @@ The server uses the galaxysession cookie to identify the user, so no additional 
 ### Configurations values
 
 
-These are the valid values for the nels-galaxy helper configuration files
+These are the valid values for the nels-galaxy configuration files, note the additional ones for the master NGA server. 
 
-* galaxy_config: \<FULL PATH TO>/galaxy.yml
-* name: \<INSTANCE NAME>
-* key: \<SECRET KEY> limits access to API point
-* port: \<PORT NUMBER> port to run under
-* proxy_url: \<PROXY URL>, URL to needed for 
-* proxy_token: \<PROXY KEY>, KEY for connecting to the proxy URL
 
-For the main server these values are 
-* tos_server: <true/false> #run the term of service, default=false 
-* grace_period: 14 # tos grace period to accept ToS in days
-* full_api: <true/false> # run the full api? default=false
-* proxy_keys: {'PROXY_KEY_A>': 'INSTANCE-A',
-               'PROXY_KEY_B': 'INSTANCE-B', 
-             ...}
- 
+####Fields for all instances can be in json or yaml:
+
+
+
+* galaxy_config: location of galaxy config file,
+* id: uuid of instance, used when connecting to the master NGA
+* key: used for allowing access to  REST-API 
+* port: port to connect to, will connect to localhost
+* galaxy_url: URL of local galaxy instance
+* master_url: master NGA URL
+* proxy_key: allows proxy access to the master NGA 
+* nels_url: NeLS URL
+  
+* tos_server: enable "Terms or Service" endpoint
+* grace_period: grace period of the ToS
+
+
+####Fields for only master instance, should be in json:
+
+
+* master: is the master NGA (True/False)
+* instances: NGAs to server, should be a dictionary with id as key, for each instance: 
+   - name: name of the instance
+   - url: galaxy url of the instance
+   - api_key: galaxy administrator api key 
+   - nga_url: NGA url for instance
+   - nga_key: key to allow access
+   - proxy_key: key to allow to behave as a proxy for the master NGA  
+   - active: true
+
+
+* nels_storage_client_key: Client key to connect to NeLS storage
+* nels_storage_client_secret: secret for the NeLS storage
+* nels_storage_url: NeLS storage url
+* mq_uri: rabbitmq queue for jobs  
+* sleep_time: sleep time before each pull to see of exports is finished.
+* tmp_dir: Where to store tmp files
 
 
 
@@ -328,7 +350,52 @@ For the main server these values are
 ### Endpoints
 
 
-All endpoints return json formated data.
+All endpoints return json formated data, look in nels-galaxy-api.py for detailed descriptions:
+
+Some common ones:
+
+* /: api version 
+* /info: disk usage info
+* /users/: list users
+
+* /user/**{email}**/histories/: list of a users histories 
+* /user/**{email}**/exports/: list of a users exports
+* /user/**{email}**/imports/: list of a users imports
+* /user/**{email}**/api-key/: get user api-key, will create it if needed
+* /user/**{id}**: detailed user info
+
+* /user/exports/: list of user exports based on the galaxy-cookie
+* /user/imports/: list of user imports based on the galaxy-cookie
+* /user/export/**{id}**: export details
+* /user/export/**{id}**: import details
+
+* /history/export/request: request export 
+* /history/import/request: request import
+* /tos/: terms of service
+
+For tracking and the nga-cli
+
+
+* /export/**{id}**/requeue/: requeue export
+* /import/**{id}**/requeue/: requeue import  
+
+
+* /exports/**{email}**: exports for email
+* /exports/**{email}**/**{instance}**: exports for email
+* /exports/all/**{instance}**/: all exports for instance
+* /exports: all exports
+
+
+* /imports/**{email}**: imports for email
+* /imports/**{email}**/**{instance}**: imports for email
+* /imports/all/**{instance}**/: all imports for instance
+* /imports: all imports
+
+  
+* /jobs: list jobs, can be filtered based on user_id
+
+
+
 
 
 
