@@ -5,7 +5,7 @@ import kbr.timedate_utils as timedate_utils
 import nels_galaxy_api.utils as nga_utils
 
 
-def get_users( config:{}, instance_name:str=None, summary=False ):
+def get_users( config:{}, instance_name:str=None, summary=False, time_delta:int=None ):
 
     users = []
     brief = []
@@ -23,7 +23,16 @@ def get_users( config:{}, instance_name:str=None, summary=False ):
         tmp_users = instance['api'].get_users()
         brief.append({'name': instance['name'], 'users': len(tmp_users)})
 
+
         for tmp_user in tmp_users:
+
+            if 'update_time' in tmp_user and time_delta:
+                update_time = timedate_utils.datestr_to_ts(tmp_user['update_time'])
+                update_time = timedate_utils.to_sec_since_epoch( update_time)
+                if time_delta > update_time:
+                    continue
+
+                del tmp_user['update_time']
 
             tmp_user['instance'] = instance['name']
             tmp_user['active'] = bool(tmp_user['active'])
