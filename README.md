@@ -2,27 +2,21 @@
 
 The NeLS-galaxy-api extend the existing galaxy api with some additional functionality 
 
+* basic information eg: user, jobs, exports, etc
 * Terms of Service agreement registering
 * History export into the NeLS storage system 
-* conducting the export and transfers of histries from galaxy and into NeLS storage
+* running the export/import of histories to/from the NeLS storage
  
 To get a galaxy to display the history export progress a special version of the welcome.html is required. 
-This **will** be part of the normal nels-galaxy or usegalaxy code bases 
+This **is** be part of the normal nels-galaxy or usegalaxy ansible playbooks and not included here. 
  
 A simple diagram:
-```
-       user
-        |
-        |
-    www-proxy
-    |       |
-    |       |
-  galaxy  nels-galaxy-api ---> usegalaxy.no
-    |       |                       |
-     \_____/                        |
-        |                           |
-      database                NeLS storage
-```
+
+![NGA overview](images/overview.png)
+
+Note that the client needs a key to access the more sensetive endpoints, and if NGA instance is acting as 
+a proxy for the master NGA, it needs a proxy-key to allow the connection 
+
 
 An ansible role is available for the deployment of the old version of the software as well at: https://github.com/usegalaxy-no/ansible-role-nels-galaxy-api
 
@@ -197,8 +191,7 @@ cp webhooks/nels_export_history_config.yml <GALAXY-SERVER-DIR>/config/plugins/we
 
 
 
-1. Ensure that the directories and the config.yml file is readable by the user running galaxy ```namei -mo /<GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export_history/config.yml```
-
+1. Ensure that the directories, and the config.yml file are readable by the user running galaxy ```namei -mo /<GALAXY-SERVER-DIR>/config/plugins/webhooks/nels/nels_export_history/config.yml```
 
 
 2. It looks like the webhooks needs to be with in the galaxy server dir. It will not work running them from a external config 
@@ -207,6 +200,52 @@ directory as done with the galaxy project ansible-playbook (and thus usegalaxy.n
 In the galaxy.yml enable webhooks (if not already done)  
 
  webhooks_dir: config/plugins/webhooks/nels/
+
+
+### The export flow
+
+The user selects the export under history webhooks
+
+![NGA export flow](images/export_flow.png)
+
+
+
+1. Redirect to local NGA where the user and history id is stored im memory
+2. redirect to the nels-storage portal where the user decides where to store the export
+3. callback to the master NGA      
+4. user and history info is fetched from the local NGA and request is recorded in database
+5. job is added to queue
+6. Redirects back to the galaxy instance
+7. nga-runner fetches job 
+8. gets job details from NGA master
+9. Trigger history export using bioblend
+10. pulls until file is available 
+11. download file to local temporary storage
+12. get user ssh key
+13. scp file across to NeLS storage
+
+
+### The import flow
+
+The user selects the import under history webhooks
+
+Note this **only** works on the usegalaxy.no instance! 
+
+
+![NGA export flow](images/import_flow.png)
+
+
+
+1. Redirect to master NGA 
+2. redirect to the nels-storage portal where the user selects the history to import
+3. callback to the master NGA
+4. job is added to queue
+5. Redirects back to the galaxy instance
+6. nga-runner fetches job
+7. get user ssh key   
+8. scp file from NeLS storage to local temp disk
+9. get user api key, it not created will create one.   
+10. Trigger history import using bioblend
 
 
 ### Running the server (production)
