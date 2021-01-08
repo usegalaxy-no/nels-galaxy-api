@@ -104,13 +104,20 @@ def ping_hosts(config: {}):
     print(tabulate(pings, headers="keys", tablefmt="psql"))
 
 
-def list_users(config: {}, instance_name: str = None):
+def list_users(config: {}, commands: []= None):
+
+    instance_name = args_utils.get_or_default(commands, "")
+    timerange = args_utils.get_or_default(commands, "")
+    time_delta = nga_utils.timedelta_to_epoc(timerange)
+
+
     if instance_name == "help":
-        print("help: list users [instance-name]")
+        print("help: list users [instance-name [timerange]]")
         return
 
+
     if instance_name:
-        data = nga_front.get_users(config, instance_name)
+        data = nga_front.get_users(config, instance_name, time_delta=time_delta)
     elif verbose:
         data = nga_front.get_users(config)
     else:
@@ -511,7 +518,7 @@ def galaxy_info_subcommand(config, commands):
     sub_command = commands.pop(0)
 
     if sub_command == 'users':
-        list_users(config, args_utils.get_or_default(commands, None))
+        list_users(config, commands)
         return
     elif sub_command == 'histories':
         list_histories(config, instance_name=args_utils.get_or_default(commands, None),
