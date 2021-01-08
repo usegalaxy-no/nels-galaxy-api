@@ -356,6 +356,7 @@ class UserImport(GalaxyHandler):
     def patch(self, tracking_id):
         logger.debug("patch tracking details")
         user = self.get_user()
+        logger.debug(f"USER :: {user}"  )
         if user is None:
             self.send_response_404()
         data = self.arguments()
@@ -363,9 +364,10 @@ class UserImport(GalaxyHandler):
         # need to decrypt the id otherwise things blow up!
         tracking_id = utils.decrypt_value(tracking_id)
         tracking = db.get_import_tracking(tracking_id)
-        logger.debug(tracking)
-        if user['email'] != tracking['user_email']:
+        logger.debug(f"TRACKING {tracking}")
+        if user['id'] != tracking['user_id']:
             self.send_response_401()
+
 
         db.update_import_tracking(tracking_id, data)
         return self.send_response_204()
@@ -688,7 +690,8 @@ class ExportsListProxy(GalaxyHandler):
                             'state': tracking['state'],
                             'create_time': tracking['create_time'],
                             'destination': tracking['destination'],
-                            'update_time': tracking['update_time'], })
+                            'update_time': tracking['update_time'],
+                            'show': tracking['show'],})
 
 
         results = utils.list_encrypt_ids(results)
@@ -1128,7 +1131,7 @@ def main():
             (r"/user/exports/?$", ExportsListProxy),  # done
             (r"/user/export/(\w+)/?$", UserExport),  # done
             (r"/user/imports/?$", UserImportsList),  #
-            (r"/user/export/(\w+)/?$", UserImport),  # done
+            (r"/user/import/(\w+)/?$", UserImport),  # done
             (r'/user/(\w+)/?$', User),  # Done
 
             (r'/history/export/request/?$', HistoryExportRequest),  # Register export request #Done
