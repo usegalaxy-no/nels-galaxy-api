@@ -259,7 +259,7 @@ class DB(object):
         return (self._db.get_as_dict(q))
 
     def get_users(self) -> []:
-        q = "select id, email, active, deleted from galaxy_user;"
+        q = "select id, email, active, deleted, update_time from galaxy_user;"
         return (self._db.get_as_dict(q))
 
     def get_job(self, job_id: int) -> {}:
