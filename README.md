@@ -306,12 +306,12 @@ nodes: [{"galaxy_url": "https://test.usegalaxy.no/",
 
 ```
 
-## mq_runner.py
+## nga_runner.py
 
 Runs the jobs in the rabbitmq queue
 
 ```
-./bin/mq_runner.py -c <config>
+./bin/nga_runner.py -c <config>
 
 ```
 
@@ -320,7 +320,11 @@ Runs the jobs in the rabbitmq queue
 
 
 
-Galaxy session cookies are session keys with encrypted with blowfish using the id_secret in the galaxy-config.
+Galaxy session cookies are session keys with encrypted with blowfish using the id_secret in the galaxy-config. 
+The same applies to all database IDs.
+
+the filepath is determined on a bucket method, duplicated it here so it is possible to download data files through the NGA-api.
+
 
 
 The development has been done on postgresql and is unlikely to work with
