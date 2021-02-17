@@ -72,6 +72,46 @@ The following needs to filled in:
 not only relative ones. 
 2. If the localhost:8008 port is already being used change it (```netstat -a | egrep 8008```)
 
+### http Proxying
+
+
+The api needs to be proxied through either nginx or apache as it binds to localhost, and this gives the options of
+using the https protocol instead of http
+
+**Note**: if changed the default port in the configuration, this needs to be done here as well
+
+#### nginx
+
+Add the following entry in your nginx to be able to accessing it at http://\<host.no>/nga/
+
+```
+    location /nga/ {
+        proxy_pass  http://127.0.0.1:8008/;
+    }
+
+```
+
+
+
+#### apache2
+
+Add the following entry in your appache2/httpd be able to accessing it at http://\<SITE>/nels-galaxy/
+
+
+```
+        <Location /nga>
+
+          Order allow,deny
+          Allow from all
+ 
+          proxyPass "http://localhost:8008"
+          proxyPassReverse "http://localhost:8008"
+        </Location>
+
+
+```
+
+
 ### Running the server (testing stage)
 
 
@@ -112,44 +152,8 @@ Proxy endpoing: test.usegalaxy.no running version 1.3.0
 Setup looks good
 ```
 
-### Proxying
+# Inter NGA node proxying
 
-
-The api needs to be proxied through either nginx or apache as it binds to localhost, and this gives the options of 
-using the https protocol instead of http 
-
-**Note**: if changed the default port in the configuration, this needs to be done here as well
-
-#### nginx
-
-Add the following entry in your nginx to be able to accessing it at http://\<host.no>/nga/
-
-```
-    location /nga/ {
-        proxy_pass  http://127.0.0.1:8008/;
-    }
-
-```
-
-
-
-#### apache2
-
-Add the following entry in your appache2/httpd be able to accessing it at http://\<SITE>/nels-galaxy/
-
-
-```
-        <Location /nga>
-
-          Order allow,deny
-          Allow from all
- 
-          proxyPass "http://localhost:8008"
-          proxyPassReverse "http://localhost:8008"
-        </Location>
-
-
-```
 
 
 **Test the connection ...**
@@ -158,7 +162,7 @@ Again in a different terminal, and in the same directory
 
 ```
 $ source venv/bin/activate
-$ ./bin/test_endpoints.py -c nels-galaxy.yml  -l https://**HOSTNAME+PATH**/nels-galaxy
+$ ./bin/test_endpoints.py -c nels-galaxy.yml  -l https://**HOSTNAME+PATH**/nga
 -------------------------------
 Testing local proxy connection 
 --------------------------------
