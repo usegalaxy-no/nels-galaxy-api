@@ -38,6 +38,7 @@ nels_storage_client_key = None
 nels_storage_client_secret = None
 nels_storage_url = None
 
+# Command line client for manually executing imports/exports, listing histories and others.
 
 def init(config_file: str) -> {}:
     config = config_utils.readin_config_file(config_file)

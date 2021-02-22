@@ -47,8 +47,12 @@ tos_grace_period = None
 no_proxy = False  # The NGA-master does not need to use the proxy connections.
 mq = mq_utils.Mq()
 
+# Main server functionality exposing nga endpoints, defining handlers for them too.
+# It reuses tornado.py and others
 
 class GalaxyHandler(tornado.BaseHandler):
+    # Class with some nga useful functionality to make them available for nga endpoint handlers
+
     def get_tos(self):
         session_key = self.get_session_key()
 
@@ -78,6 +82,9 @@ class GalaxyHandler(tornado.BaseHandler):
 
 
 def galaxy_init(galaxy_config: dict) -> None:
+    # initialites galaxy configuration using some galaxy setups from galaxy.yml ('galaxy')
+    # (database_connection, file_path, id_secret)
+
     logger.info("init from galaxy-config ")
 
     # Galaxy specific things:
@@ -105,6 +112,10 @@ def galaxy_init(galaxy_config: dict) -> None:
 
 
 def init(config_file: dict) -> None:
+    # Initialises setup from config file and galaxy config file and
+    # also initialites global variables (galaxy_url, master_url, nels_url, instance_id, tos_grace_period),
+    # sets (proxy_keys, instances, no_proxy)
+
     config = config_utils.readin_config_file(config_file)
     galaxy_config = config_utils.readin_config_file(config['galaxy_config'])
 
@@ -168,6 +179,8 @@ def init(config_file: dict) -> None:
 
 
 def submit_mq_job(tracking_id: int, type: str) -> None:
+    # Utility method for submitting jobs to the RabbitMQ
+
     payload = {'tracker_id': tracking_id, 'type': type}
 
     if mq is None:
@@ -176,6 +189,8 @@ def submit_mq_job(tracking_id: int, type: str) -> None:
 
     mq.publish(body=json.dumps(payload))
 
+
+# ENDPOINTS MANAGEMENT
 
 class RootHandler(tornado.BaseHandler):
 
@@ -1089,6 +1104,8 @@ class ImportHandler(GalaxyHandler):
 
 
 def main():
+    # Endpoints setup
+
     parser = argparse.ArgumentParser(description='nels-galaxy-api: extending the functionality of galaxy')
 
     parser.add_argument('-c', '--config-file', required=True, help="nels-galaxy-api config file")

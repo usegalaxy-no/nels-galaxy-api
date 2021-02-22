@@ -3,6 +3,7 @@ import unittest
 
 import nels_galaxy_api.api_requests as requests
 
+# Tests basic (and not so basic) galaxy api functionality
 
 base_url = 'http://localhost:8008'
 instance = 'usegalaxy'

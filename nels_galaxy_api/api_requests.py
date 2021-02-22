@@ -3,6 +3,7 @@ from requests import Request, Session
 import json
 import kbr.requests_utils as requests_utils
 
+# Basic library offering programatic access to nga rest-api.
 
 class ApiRequests( object ):
     def __init__(self, base_url:str, token:str=None):

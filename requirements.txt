@@ -1,9 +1,9 @@
 tornado
-psycopg2-binary
+psycopg2-binary         #postgresql adaptor
 records
-pycryptodome
+pycryptodome            # low-level cryptographic primitives
 git+https://github.com/brugger/kbr-tools.git
-tabulate
-bioblend
+tabulate                # Pretty-print tabular data in Python
+bioblend                # galaxy api wrapper for python
 requests
-pika
+pika                    # RabbitMQ python library

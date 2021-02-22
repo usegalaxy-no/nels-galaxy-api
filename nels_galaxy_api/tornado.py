@@ -16,6 +16,7 @@ import pprint as pp
 
 token = None
 
+# Basic tornado functionality in order to be reused/extended (in this case, by nels-galaxy-api.py)
 
 # bespoke decoder to handle UUID and timestamps
 class UUIDEncoder(json.JSONEncoder):

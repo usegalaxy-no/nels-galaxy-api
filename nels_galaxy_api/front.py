@@ -4,6 +4,7 @@ import kbr.timedate_utils as timedate_utils
 
 import nels_galaxy_api.utils as nga_utils
 
+# Functionalities for getting users, histories, exports and imports, using nga rest-api to fetch data.
 
 def get_users( config:{}, instance_name:str=None, summary=False, time_delta:int=None ):
 

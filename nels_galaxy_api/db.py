@@ -1,6 +1,7 @@
 import kbr.db_utils as db
 import datetime
 
+# Manages all database registries related to importing/exporting (and smaller ones required)
 
 class DB(object):
 

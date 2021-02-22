@@ -30,6 +30,7 @@ def main():
 
     args = parser.parse_args()
 
+    # initialises config object
     config = config_utils.readin_config_file( args.config_file)
 
     logger.init(name=f'nels-galaxy-endpoints (v: {version})')

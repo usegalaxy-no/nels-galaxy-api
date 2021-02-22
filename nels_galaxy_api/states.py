@@ -1,5 +1,6 @@
 import kbr.crypt_utils as crypt_utils
 
+# Keeps states structured using "states" dictionary, using a randomly generated id as key.
 
 states = {}
 

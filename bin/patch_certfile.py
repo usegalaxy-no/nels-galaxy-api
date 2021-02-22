@@ -6,6 +6,7 @@ import argparse
 import warnings
 warnings.simplefilter("ignore")
 
+# Utility to add the root-cert TERENA_SSL_CA_3.pem to avoid problems with UiO certs.
 
 parser = argparse.ArgumentParser(description=f'add missing certs to certfi?')
 parser.add_argument('hostname', nargs=1,    help="hostname to check cert for")
