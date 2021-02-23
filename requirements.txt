@@ -7,3 +7,4 @@ tabulate                # Pretty-print tabular data in Python
 bioblend                # galaxy api wrapper for python
 requests
 pika                    # RabbitMQ python library
+certifi                 # Used by nga-cli, Root Certificates for validating the trustworthiness of SSL
