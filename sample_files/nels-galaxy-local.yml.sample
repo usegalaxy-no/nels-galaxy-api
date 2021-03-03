@@ -1,0 +1,23 @@
+# full path to the galaxy config gile
+galaxy_config: <path-to-galaxy-config-dir>/galaxy.yml
+
+# full url (with port) where Galaxy is listening to
+galaxy_url: http://<galaxy_url>:<galaxy_port>
+
+# uuid of the local nga instance, used when connecting to the master NGA
+id: <unique_selfcreated_nga_id>
+
+# key to allow access to the rest-api
+key: <unique_selfcreated_nga_access_key>
+
+# full url to master nga
+master_url: http://<master_nga_url>
+
+# key to allow to behave as a proxy by the master nga
+proxy_key: <unique_master_nga_access_key>
+
+# nga listening port
+port: <nga_port>
+
+# full url to the NeLS instance used by this nga instance
+nels_url: <full_url_nels_instance>

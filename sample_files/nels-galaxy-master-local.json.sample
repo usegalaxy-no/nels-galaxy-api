@@ -1,0 +1,36 @@
+{
+  "galaxy_config": "<PATH-TO-MASTER-GALAXY-CONFIG-DIR/galaxy.yml",
+  "id": "master_nga_id",
+  "key": "master_nga_key",
+  "port": "master_nga_listening_port",
+  "galaxy_url": "http://<master_galaxy_url>:<master_galaxy_port>",
+  "master_url": "http://<master_nga_url>:<master_nga_port>",
+  "proxy_key": "<master_proxy_key>",
+  "tos_server": false,
+  "grace_period": 14,
+  "master": true,
+
+  "instances": {
+    "<unique_selfcreated_nga_client_id>": {
+      "name": "<descriptive_nga_client_name>",
+      "url": "<full_galaxy_client_url>",
+      "api_key": "<galaxy_client_admin_api_key>",
+      "nga_url": "<full_nga_client_url>",
+      "nga_key": "<unique_selfcreated_nga_client_access_key>",
+      "contact_email": "<nga_client_admin_email>",
+      "max_exports": 5,
+      "proxy_key": "<master_proxy_key>",
+      "active": true
+    }
+  },
+
+  "nels_storage_client_key": "<nels_storage_key>",
+  "nels_storage_client_secret": "<nels_storage_secret>",
+  "nels_url": "<full_url_nels_instance>",
+  "nels_storage_url": "<full_url_nels_storage>",
+
+
+  "mq_uri": "<amqps://nels_galaxy:4630fed519300707c6353e2e83fcdbe7@db.test.usegalaxy.no/nels_galaxy>",
+  "sleep_time": 30,
+  "tmp_dir": "<full_temp_folder_url>"
+}
