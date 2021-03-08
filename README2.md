@@ -24,23 +24,28 @@ NGA mainly consists on:
 NGA clients are usually accessed by users in order to export/import their histories into/from the master NGA instance and NeLS.
 
 Users need a key to access nga client endpoints, and, if a NGA instance is acting as 
-a proxy for the master NGA, this NGA instance needs a proxy-key to allow the connection to the NGA master instance.
+a proxy for the master NGA, this NGA instance needs the master proxy-key to allow the connection to the NGA master instance.
 
 Finally, a webhook is installed into Galaxy in order to facilitate exporting/importing functionality to the user.
 
 
-A diagram showing how NGA components interact among them:
+A diagram showing how NGA components from NGA clients (UiB and UiO are used just as examples) interact among them and with the master instance:
 
 ![NGA overview](images/extended_overview.png)
 
 
+**Notes**:
+
+1. By October, old usegalaxy client instances will dissapear and only usegalaxy.no will remain. NGA will still be available from there.
+
+
 TODO: To be kept? -->
-An ansible role is available for the deployment of the old version of the software as well at: https://github.com/usegalaxy-no/ansible-role-nels-galaxy-api
+2.An ansible role is available for the deployment of the old version of the software as well at: https://github.com/usegalaxy-no/ansible-role-nels-galaxy-api
 
 
 ## NGA export and import diagrams
 
-The most complex interaction among nga components happen when an export or import flow is requested by the user. We will describe both sequences here.
+The most complex interaction among nga components happens when an export or import flow is requested by the user. We will describe both sequences here.
 
 ### The export flow
 
@@ -160,7 +165,7 @@ More information about every configuration value may be found by the end of this
 
 
 **Notes**:
-2. If the localhost:8008 port is already being used change it (```netstat -a | egrep 8008```)
+1. If the localhost:8008 port is already being used change it (```netstat -a | egrep 8008```)
 
 
 #### NGA master instance
