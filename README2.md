@@ -97,15 +97,15 @@ Note this **only** works on the usegalaxy.no instance!
 
 ## NGA Installation
 
-
-Installation consists of 4 steps:
+Installation consists on 4 steps:
 
 1. Install and configure the nels-galaxy-api.
-2. configure nga proxying.
+2. Configure nga proxying.
 3. Galaxy configuration.
-4. Running the server in production mode.
+4. Running the server.
+5. Running the nga_runner.
 
-Once the service is up and running you will need to:   5. share the galaxy admin api-key (from the webinterface) 
+Once the service is up and running you will need to:   6. share the galaxy admin api-key (from the webinterface) 
 
 
 with the usegalaxy admin, this is to enable triggering the history-export through bioblend
@@ -114,8 +114,6 @@ with the usegalaxy admin, this is to enable triggering the history-export throug
 These instructions are for the test server setup and are using the provided nels-galaxy-test.yml.sample config file. 
 For production use the nels-galaxy-prod.yml.sample file instead. The files are almost identical except the name of the proxy-server to connect to.
 
-
-TEST ENDPOINTS JUST FOR MASTER INSTANCE
 
 
 
@@ -296,8 +294,6 @@ directory as done with the galaxy project ansible-playbook (and thus usegalaxy.n
 
 ### Running the server 
 
-TODO: To confirm that test_endpoints.py must only be executed against the master instance.
-
 
 #### Testing stage
 
@@ -379,6 +375,20 @@ There have been some problems with the certs used by UIO (at least in test stage
 ./bin/patch_certfile.py invivo.hpc.uio.no TERENA_SSL_CA_3.pem  
 ```
 
+### Running nga_runner
+
+
+This program triggers the history export flow and, later, file transfers.
+
+It mainly uses the same information available in a master nga config file (yaml or json format)
+
+In order to execute it for running the jobs in the rabbitmq queue:
+
+
+```
+./bin/nga_runner.py -c <config>
+
+```
 
 
 
