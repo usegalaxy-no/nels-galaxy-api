@@ -29,13 +29,9 @@ a proxy for the master NGA, this NGA instance needs a proxy-key to allow the con
 Finally, a webhook is installed into Galaxy in order to facilitate exporting/importing functionality to the user.
 
 
-A simple diagram showing how different components interact among them using NGA:
+A diagram showing how NGA components interact among them:
 
-![NGA overview](images/overview.png)
-
-
-TODO: Add user, NeLS and master galaxy to the diagram
-
+![NGA overview](images/extended_overview.png)
 
 
 TODO: To be kept? -->
@@ -397,13 +393,13 @@ In order to execute it for running the jobs in the rabbitmq queue:
 TODO: To properly understand how to access to the session keys.
 
 
-Galaxy session cookies are session keys with encrypted with blowfish using the id_secret in the galaxy-config. 
+Galaxy session cookies are blowfish-encrypted session keys which use the id_secret in the galaxy-config. 
 The same applies to all database IDs.
 
 The filepath is determined on a bucket method, duplicated it here so it is possible to download data files through the NGA-api.
 
 
-The development has been done on postgresql and is unlikely to work with other databases
+The development has been done on postgresql and is unlikely to work with other databases.
 
 The program will create the required tables if needed.
 
@@ -468,7 +464,7 @@ TODO: To review and rename
 # NGA Endpoints
 
 
-All endpoints return json formated data, look in nels-galaxy-api.py for detailed descriptions:
+All endpoints return json formatted data, look into nels-galaxy-api.py for detailed descriptions.
 
 Some common ones:
 
