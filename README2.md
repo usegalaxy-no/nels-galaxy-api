@@ -47,7 +47,7 @@ TODO: To be kept? -->
 
 The most complex interaction among nga components happens when an export or import flow is requested by the user. We will describe both sequences here.
 
-### The export flow
+### The export flow (before old usegalaxy nodes dissapear)
 
 When the user selects the export option under history webhooks it triggers the following calls:
 
@@ -266,6 +266,16 @@ Please note that it must be a full filepath, not just a relative one.
 
 ```
 webhooks_dir: config/plugins/webhooks/nels
+```
+
+- Object store properly configured.
+
+Galaxy versions 20.05 and later use by default a new method called *uuid* instead of the previous one (*id*) in order to create internal paths to datasets.
+
+NGA only works with id-based paths, so, if having Galaxy 20.05 or later, it is necessary to specifiy it into the config file as:
+
+```
+object_store_store_by: id
 ```
 
 #### Installing the webhook
