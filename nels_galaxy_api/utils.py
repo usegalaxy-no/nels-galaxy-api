@@ -68,6 +68,7 @@ def construct_file_path(obj_id, file_dir=None):
     # Create a subdirectory for the object ID
     path = os.path.join(base, rel_path)
     path = os.path.join(path, "dataset_%s.dat" % obj_id)
+    print( f"Trying new style path  {path} ")
     if os.path.isfile(path):
         return path
 

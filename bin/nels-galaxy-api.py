@@ -6,6 +6,7 @@ import os
 import time
 import json
 
+import pika
 from tornado import iostream
 
 sys.path.append(".")
@@ -231,6 +232,23 @@ class State(tornado.BaseHandler):
         return self.send_response(data=data)
 
 
+class RabbitMQState(tornado.BaseHandler):
+
+    def endpoint(self):
+        return ("/rabbitmq_status/")
+
+    def get(self):
+        logger.debug("get rabbitmq connection status")
+        self.check_token()
+
+        try:
+            mq.connection.process_data_events()
+            return True
+        except pika.exceptions.ConnectionClosed as e:
+            return False
+
+
+
 class Users(GalaxyHandler):
 
     def endpoint(self):
@@ -416,6 +434,8 @@ class HistoryExportRequest(GalaxyHandler):
         logger.debug("request history export")
 
         user = self.get_user()
+        logger.debug("user")
+        logger.debug(user)
         if user is None or user == []:
             return self.send_response_401()
 
@@ -1175,7 +1195,8 @@ def main():
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
         logger.debug("setting the master endpoints")
-        urls += [(r'/export/(\w+)/requeue/?$', RequeueExport),  # requeue  export request
+        urls += [(r'/rabbitmq_status/?$', RabbitMQState),  # check rabbitmq connection status
+                 (r'/export/(\w+)/requeue/?$', RequeueExport),  # requeue  export request
                  (r'/import/(\w+)/requeue/?$', RequeueImport),  # requeue  export request
 
                  (r"/export/(\w+)/(\w+)/?$", Export),  # instance-id, state-id (post) #done
@@ -1197,7 +1218,7 @@ def main():
                  (r'/jobs/?$', JobsList),  # All entries in the table, for the cli (differnt key?) # done
 
 
-                 # For testing the setup
+                 # For testing the setup -> ONLY FOR THE MASTER
                  (r'/proxy/?$', ProxyTest),  # an  endpoint for testing the proxy connection #done
 
                  # Might drop these two
