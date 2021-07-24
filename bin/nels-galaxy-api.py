@@ -245,6 +245,10 @@ class RabbitMQState(tornado.BaseHandler):
             mq.connection.process_data_events()
             return True
         except pika.exceptions.ConnectionClosed as e:
+            logger.error(e)
+            return False
+        except Exception as e:
+            logger.error(e)
             return False
 
 
