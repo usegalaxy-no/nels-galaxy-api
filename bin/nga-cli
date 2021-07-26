@@ -6,6 +6,7 @@ import re
 import pprint as pp
 import sys
 import certifi
+import pika
 
 from kbr import file_utils
 from tabulate import tabulate
@@ -441,10 +442,17 @@ def mq_status() -> None:
         logger.error('MQ not configured, cannot send message')
         return
     try:
-        mq.connection.process_data_events()
-        print("RabbitMQ connection is alive")
+        if mq.connection.is_open:
+            mq.connection.process_data_events()
+            print("RabbitMQ connection is alive")
+        else:
+            print("RabbitMQ connection is NOT alive")
+            logger.error("Connection is NOT open")
+    except pika.exceptions.ConnectionClosed as e:
+        print("Connection closed")
+        logger.error(e)
     except Exception as e:
-        print("RabbitMQ connection is NOT alive")
+        print("RabbitMQ connection is NOT alive: unspecific error")
         logger.error(e)
     return
 
