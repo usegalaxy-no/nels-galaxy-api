@@ -436,6 +436,19 @@ def import_subcommand(config: {}, commands=[]):
         print("requests: imports restate ID new-state")
 
 
+def mq_status() -> None:
+    if mq is None:
+        logger.error('MQ not configured, cannot send message')
+        return
+    try:
+        mq.connection.process_data_events()
+        print("RabbitMQ connection is alive")
+    except Exception as e:
+        print("RabbitMQ connection is NOT alive")
+        logger.error(e)
+    return
+
+
 def submit_mq_job(tracker_id: int, tpe: str) -> None:
     payload = {'tracker_id': tracker_id, "type": tpe}
 
@@ -709,6 +722,9 @@ def utils_subcommand(config, commands):
         galaxy_crypt(value, 'encrypt')
     elif sub_command == 'nels-ssh-info':
         nels_ssh_info(config, commands)
+    elif sub_command == 'mqstatus':
+        mq_status()
+        return
 
 
     else:
@@ -727,6 +743,8 @@ def utils_subcommand(config, commands):
         print("utils: decrypt [value]")
         print("utils: encrypt [value]")
         print("utils: nels-ssh-info [nels-id] ")
+        print("utils: mqstatus ")
+
 
 
 #        print("utils: exports [instance] [user]")
