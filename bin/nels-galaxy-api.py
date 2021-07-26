@@ -232,25 +232,38 @@ class State(tornado.BaseHandler):
         return self.send_response(data=data)
 
 
-class RabbitMQState(tornado.BaseHandler):
+class RabbitMQStatus(tornado.BaseHandler):
 
     def endpoint(self):
         return ("/rabbitmq_status/")
 
-    def get(self):
+    async def get(self):
         logger.debug("get rabbitmq connection status")
         self.check_token()
 
         try:
-            mq.connection.process_data_events()
-            return True
+            if mq.connection.is_open:
+                mq.connection.process_data_events()
+                alive = True
+                message = ""
+            else:
+                alive = False
+                logger.error("Connection is NOT open")
+                message = "Connection is NOT open"
+
         except pika.exceptions.ConnectionClosed as e:
             logger.error(e)
-            return False
-        except Exception as e:
-            logger.error(e)
-            return False
+            alive = False
+            message = "Connection closed: "+str(e)
+        except :
+            logger.error(sys.exc_info()[0].args[0])
+            alive = False
+            message = "Unspecific error: "+sys.exc_info()[0].args[0]
 
+        if alive:
+            return self.send_response(data={'status': alive})
+        else:
+            return self.send_response_503(data={'status': alive,'message':message})
 
 
 class Users(GalaxyHandler):
@@ -1199,7 +1212,7 @@ def main():
     # for the orchestrator functionality:
     if 'master' in config and config['master']:
         logger.debug("setting the master endpoints")
-        urls += [(r'/rabbitmq_status/?$', RabbitMQState),  # check rabbitmq connection status
+        urls += [(r'/rabbitmq_status/?$', RabbitMQStatus),  # check rabbitmq connection status
                  (r'/export/(\w+)/requeue/?$', RequeueExport),  # requeue  export request
                  (r'/import/(\w+)/requeue/?$', RequeueImport),  # requeue  export request
 
