@@ -255,6 +255,10 @@ class RabbitMQStatus(tornado.BaseHandler):
             logger.error(e)
             alive = False
             message = "Connection closed: "+str(e)
+        except pika.exceptions.StreamLostError as e:
+            logger.error(e)
+            alive = False
+            message = "Connection lost: "+str(e)
         except :
             logger.error(sys.exc_info()[0].args[0])
             alive = False
