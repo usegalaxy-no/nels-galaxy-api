@@ -1,4 +1,11 @@
-# nels-galaxy-api 
+# nels-galaxy-api  (NGA)
+
+---
+**DEPRECATION NOTICE**: nels-galaxy-api version available at this repository is considered **obsolete**  and must not be used anymore.
+
+Instead, you must use the last NGA version available at UiB Gitlab: <https://git.app.uib.no/cbu-dev/nga>
+
+---
 
 The NeLS-galaxy-api extend the existing galaxy api with some additional functionality 
 
